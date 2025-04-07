@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - document_storage:/app/document_storage
+      - chroma_db:/app/chroma_db
+      - db_data:/app/db
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - ENVIRONMENT=production
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=/
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  document_storage:
+  chroma_db:
+  db_data:
+  ollama_data:

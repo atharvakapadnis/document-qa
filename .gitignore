@@ -4,7 +4,7 @@
 # Generated Directories 
 document_storage/
 chroma_db/
-db/
+/db/
 
 # Python
 __pycache__/

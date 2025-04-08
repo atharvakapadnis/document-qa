@@ -23,9 +23,9 @@ else
 fi
 
 # Pull LLM model if needed
-if ! docker-compose exec ollama ollama list | grep -q "llama3"; then
+if ! docker-compose exec ollama ollama list | grep -q "llama3.2"; then
     echo "Pulling LLM model (this may take a while)..."
-    docker-compose exec ollama ollama pull llama3
+    docker-compose exec ollama ollama pull llama3.2
 else
     echo "LLM model already downloaded."
 fi

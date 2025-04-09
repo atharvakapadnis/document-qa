@@ -35,17 +35,21 @@ function DocumentView() {
     });
 
     // Update document mutation
-    const updateMutation = useMutation(updateDocument, {
-        onSuccess: () => {
-            queryClient.invalidateQueries(['document', documentId]);
-            toast({
-                title: 'Document updated',
-                status: 'success',
-                duration: 3000,
-                isClosable: true,
-            });
+    const updateMutation = useMutation(
+        // Using a function that takes two parameters
+        (data) => updateDocument(documentId, data),
+        {
+            onSuccess: () => {
+                queryClient.invalidateQueries(['document', documentId]);
+                toast({
+                    title: 'Document updated',
+                    status: 'success',
+                    duration: 3000,
+                    isClosable: true,
+                });
+            }
         }
-    });
+    );
 
     // Handle document deletion
     const handleDelete = () => {
@@ -99,10 +103,7 @@ function DocumentView() {
             }
 
             const updatedTags = [...currentTags, newTag];
-            updateMutation.mutate({
-                documentId,
-                data: { tags: updatedTags }
-            });
+            updateMutation.mutate(documentId, { tags: updatedTags });
             setNewTag('');
         }
     };
@@ -111,10 +112,7 @@ function DocumentView() {
     const handleRemoveTag = (tagToRemove) => {
         if (document) {
             const updatedTags = (document.tags || []).filter(tag => tag !== tagToRemove);
-            updateMutation.mutate({
-                documentId,
-                data: { tags: updatedTags }
-            });
+            updateMutation.mutate(documentId, { tags: updatedTags });
         }
     };
 

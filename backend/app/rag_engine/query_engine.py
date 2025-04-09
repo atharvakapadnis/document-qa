@@ -9,7 +9,7 @@ class QueryEngine:
     """Process queries against the document store"""
     
     def __init__(self, document_store, embedding_manager, 
-                llm_model: str = settings.LLM_MODEL,
+                llm_model: str = "llama3.2",
                 base_url: str = settings.OLLAMA_BASE_URL):
         self.document_store = document_store
         self.embedding_manager = embedding_manager

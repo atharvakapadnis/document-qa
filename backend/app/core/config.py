@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     # Models
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama3")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama3.2")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
     class Config:

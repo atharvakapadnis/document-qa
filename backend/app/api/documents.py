@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, BackgroundTasks, Query, status
 from pydantic import BaseModel
+from langchain_ollama.llms import OllamaLLM
 
 from app.models.user import User
 from app.api.auth import get_current_user
@@ -246,3 +247,192 @@ async def delete_document(
         os.remove(file_path)
     
     return {"message": "Document deleted successfully"}
+
+class ComparisonRequest(BaseModel):
+    document_ids: List[str]
+    comparison_type: str = "similarity"  # similarity, difference, or overlap
+
+
+class ComparisonResult(BaseModel):
+    similarity_score: float
+    common_topics: List[str]
+    unique_topics: Dict[str, List[str]]
+    summary: str
+
+
+@router.post("/compare", response_model=ComparisonResult)
+async def compare_documents(
+    comparison_request: ComparisonRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Compare two or more documents"""
+    try:
+        document_ids = comparison_request.document_ids
+        comparison_type = comparison_request.comparison_type
+        
+        # Ensure we have at least 2 documents
+        if len(document_ids) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least two documents are required for comparison"
+            )
+        
+        # Get documents
+        documents = []
+        for doc_id in document_ids:
+            doc = db.get_document(current_user.username, doc_id)
+            if not doc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document {doc_id} not found"
+                )
+            documents.append(doc)
+        
+        # Get document contents
+        document_texts = []
+        for doc in documents:
+            file_path = f"{settings.DOCUMENT_STORAGE_PATH}/{current_user.username}/{doc['doc_id']}.{doc['file_type']}"
+            
+            if not os.path.exists(file_path):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document file not found: {doc['filename']}"
+                )
+            
+            # Extract text using document processor
+            chunks = document_processor.process_file(file_path, doc['file_type'])
+            doc_text = "\n".join([chunk.text for chunk in chunks])
+            document_texts.append(doc_text)
+
+        # Get document embeddings
+        document_embeddings = [
+            embedding_manager.get_embedding("\n".join(doc_text.split("\n")[:50])) 
+            for doc_text in document_texts
+        ]
+        
+        # Calculate similarity between documents
+        from scipy.spatial.distance import cosine
+        
+        similarity_scores = []
+        for i in range(len(document_embeddings)):
+            for j in range(i + 1, len(document_embeddings)):
+                similarity = 1 - cosine(document_embeddings[i], document_embeddings[j])
+                similarity_scores.append(similarity)
+        
+        # Calculate average similarity
+        avg_similarity = sum(similarity_scores) / len(similarity_scores) if similarity_scores else 0
+        
+        # Extract key topics using LLM
+        topic_extraction_prompt = f"""
+        Extract 5-7 key topics from each of these documents. Return topics in this format:
+        
+        Document 1 topics:
+        - Topic 1
+        - Topic 2
+        ...
+        
+        Document 2 topics:
+        - Topic 1
+        - Topic 2
+        ...
+        
+        Document 1 content:
+        {document_texts[0][:2000]}
+        
+        Document 2 content:
+        {document_texts[1][:2000]}
+        """
+        
+        topic_result = OllamaLLM(model=settings.LLM_MODEL, base_url=settings.OLLAMA_BASE_URL).invoke(topic_extraction_prompt)
+        
+        # Extract common and unique topics using LLM
+        topic_analysis_prompt = f"""
+        Analyze the topics from these documents and identify:
+        1. Common topics shared between documents
+        2. Unique topics for each document
+        
+        Topics from analysis:
+        {topic_result}
+        
+        Format the response as a JSON with these keys:
+        - common_topics: array of strings
+        - unique_topics: object with document IDs as keys and arrays of strings as values
+        
+        For example:
+        {{
+            "common_topics": ["Water management", "Environmental impact"],
+            "unique_topics": {{
+                "doc1": ["Filtration methods", "Chemical analysis"],
+                "doc2": ["Regulatory compliance", "Cost efficiency"]
+            }}
+        }}
+        """
+        
+        analysis_result = OllamaLLM(model=settings.LLM_MODEL, base_url=settings.OLLAMA_BASE_URL).invoke(topic_analysis_prompt)
+        
+        # Parse analysis result
+        import re
+        import json
+        
+        # Extract JSON from the result
+        json_match = re.search(r'```json\n(.*?)\n```', analysis_result, re.DOTALL)
+        if json_match:
+            analysis_json = json_match.group(1)
+        else:
+            json_match = re.search(r'({.*})', analysis_result, re.DOTALL)
+            if json_match:
+                analysis_json = json_match.group(1)
+            else:
+                analysis_json = analysis_result
+        
+        try:
+            analysis_data = json.loads(analysis_json)
+        except:
+            # Fallback if JSON parsing fails
+            analysis_data = {
+                "common_topics": [],
+                "unique_topics": {f"doc{i+1}": [] for i in range(len(documents))}
+            }
+        
+        # Generate summary comparison
+        summary_prompt = f"""
+        Compare and contrast the following documents based on their content. 
+        Provide a brief summary of the main similarities and differences.
+        
+        Document 1: {documents[0]['filename']}
+        Content: {document_texts[0][:1500]}
+        
+        Document 2: {documents[1]['filename']}
+        Content: {document_texts[1][:1500]}
+        
+        Topics analysis:
+        Common topics: {', '.join(analysis_data.get('common_topics', []))}
+        Unique topics for Document 1: {', '.join(analysis_data.get('unique_topics', {}).get('doc1', []))}
+        Unique topics for Document 2: {', '.join(analysis_data.get('unique_topics', {}).get('doc2', []))}
+        
+        Overall similarity score: {avg_similarity:.2f} (on a scale of 0 to 1)
+        """
+        
+        summary = OllamaLLM(model=settings.LLM_MODEL, base_url=settings.OLLAMA_BASE_URL).invoke(summary_prompt)
+        
+        # Process unique topics for response
+        unique_topics = {}
+        for i, doc_id in enumerate(document_ids):
+            doc_key = f"doc{i+1}"
+            if doc_key in analysis_data.get('unique_topics', {}):
+                unique_topics[doc_id] = analysis_data['unique_topics'][doc_key]
+            else:
+                unique_topics[doc_id] = []
+        
+        return ComparisonResult(
+            similarity_score=avg_similarity,
+            common_topics=analysis_data.get('common_topics', []),
+            unique_topics=unique_topics,
+            summary=summary
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error comparing documents: {str(e)}"
+        )

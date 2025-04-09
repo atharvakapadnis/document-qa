@@ -9,6 +9,7 @@ import { FiSend, FiFile } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
 import { sendQuery } from '../api/queries';
+import QueryVisualizer from '../components/QueryVisualizer'
 
 function ChatInterface() {
     const [searchParams] = useSearchParams();
@@ -246,6 +247,15 @@ function ChatInterface() {
                         </Flex>
                     ))
                 )}
+                {messages.length > 0 &&
+                    messages[messages.length - 1].sender === 'system' &&
+                    !messages[messages.length - 1].error && (
+                        <QueryVisualizer
+                            sources={messages[messages.length - 1].sources || []}
+                            confidence={messages[messages.length - 1].confidence || 0}
+                            queryTime={messages[messages.length - 1].query_time_seconds || 0}
+                        />
+                    )}
                 <div ref={messagesEndRef} />
             </VStack>
 

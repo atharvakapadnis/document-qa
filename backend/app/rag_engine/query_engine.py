@@ -119,10 +119,25 @@ class QueryEngine:
             # Calculate confidence based on relevance scores
             confidence = 0.0
             if "distances" in search_results and search_results["distances"]:
-                # Lower distance means higher confidence
-                avg_distance = sum(search_results["distances"][0]) / len(search_results["distances"][0])
-                # Convert distance to confidence score (0-1)
-                confidence = max(0, min(1, 1 - avg_distance))
+                distances = search_results["distances"][0]
+
+                # 1. Calculate weighted average based on positions (earlier chunks have higher weight)
+                weights = [1.0 / (i + 1) for i in range(len(distances))]
+                total_weight = sum(weights)
+                normalized_weights = [w / total_weight for w in weights]
+                
+                # 2. Convert distances to similarities (higher is better)
+                similarities = [max(0, 1 - d) for d in distances]
+                
+                # 3. Apply weighted average
+                weighted_confidence = sum(s * w for s, w in zip(similarities, normalized_weights))
+                
+                # 4. Apply a sigmoid function to get a more intuitive distribution
+                from math import exp
+                confidence = 1 / (1 + exp(-10 * (weighted_confidence - 0.5)))
+                
+                # Ensure confidence is between 0 and 1
+                confidence = min(1.0, max(0.0, confidence))
             
             # End timing
             query_time = time.time() - start_time

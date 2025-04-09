@@ -14,3 +14,4 @@ PyMuPDF>=1.22.5
 python-docx==0.8.11
 aiofiles==23.1.0
 tenacity>=8.2.2
+scipy>=1.10.0

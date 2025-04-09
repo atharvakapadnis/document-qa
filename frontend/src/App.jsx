@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ChakraProvider } from '@chakra-ui/react';
+import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
+import { mode } from '@chakra-ui/theme-tools'
+import { Box, Heading, Text } from '@chakra-ui/react';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -16,6 +18,39 @@ import Layout from './components/Layout';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
+import { ColorModeProvider } from './context/ColorModeContext';
+
+// Create a custom theme with color mode support
+const theme = extendTheme({
+    config: {
+        initialColorMode: 'dark',
+        useSystemColorMode: false,
+    },
+    styles: {
+        global: (props) => ({
+            body: {
+                bg: mode('white', 'gray.800')(props),
+                color: mode('gray.800', 'whiteAlpha.900')(props),
+            },
+        }),
+    },
+    components: {
+        Card: {
+            baseStyle: (props) => ({
+                container: {
+                    bg: mode('white', 'gray.700')(props),
+                },
+            }),
+        },
+        Modal: {
+            baseStyle: (props) => ({
+                dialog: {
+                    bg: mode('white', 'gray.800')(props),
+                },
+            }),
+        },
+    },
+});
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -29,23 +64,26 @@ const queryClient = new QueryClient({
 
 function App() {
     return (
-        <ChakraProvider>
-            <QueryClientProvider client={queryClient}>
-                <AuthProvider>
-                    <Router>
-                        <Routes>
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/register" element={<Register />} />
+        <ChakraProvider theme={theme}>
+            <ColorModeProvider>
+                <QueryClientProvider client={queryClient}>
+                    <AuthProvider>
+                        <Router>
+                            <Routes>
+                                <Route path="/login" element={<Login />} />
+                                <Route path="/register" element={<Register />} />
 
-                            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-                                <Route index element={<Dashboard />} />
-                                <Route path="documents/:documentId" element={<DocumentView />} />
-                                <Route path="chat" element={<ChatInterface />} />
-                            </Route>
-                        </Routes>
-                    </Router>
-                </AuthProvider>
-            </QueryClientProvider>
+                                <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+                                    <Route index element={<Dashboard />} />
+                                    <Route path="documents/:documentId" element={<DocumentView />} />
+                                    <Route path="chat" element={<ChatInterface />} />
+                                  /*  <Route path="compare" element={<DocumentCompare />} />*/
+                                </Route>
+                            </Routes>
+                        </Router>
+                    </AuthProvider>
+                </QueryClientProvider>
+            </ColorModeProvider>
         </ChakraProvider>
     );
 }

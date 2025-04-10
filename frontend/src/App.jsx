@@ -77,7 +77,7 @@ function App() {
                                     <Route index element={<Dashboard />} />
                                     <Route path="documents/:documentId" element={<DocumentView />} />
                                     <Route path="chat" element={<ChatInterface />} />
-                                  /*  <Route path="compare" element={<DocumentCompare />} />*/
+                                    {/*  <Route path="compare" element={<DocumentCompare />} />*/}
                                 </Route>
                             </Routes>
                         </Router>

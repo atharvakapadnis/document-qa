@@ -2,12 +2,13 @@ import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
     Box, Text, Icon, VStack, List, ListItem, Flex,
-    Progress, IconButton, Badge
+    Progress, IconButton, Badge, useColorMode
 } from '@chakra-ui/react';
 import { FiUploadCloud, FiFile, FiX } from 'react-icons/fi';
 
 const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 }) => {
     const [files, setFiles] = useState([]);
+    const { colorMode } = useColorMode();
 
     // Handle file drop
     const onDrop = useCallback((acceptedFiles) => {
@@ -68,8 +69,11 @@ const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 
                 borderWidth={2}
                 borderRadius="md"
                 borderStyle="dashed"
-                borderColor={isDragActive ? 'blue.400' : 'gray.200'}
-                bg="gray.50"
+                borderColor={isDragActive
+                    ? 'blue.400'
+                    : colorMode === 'dark' ? 'gray.600' : 'gray.200'
+                }
+                bg={colorMode === 'dark' ? 'gray.800' : 'gray.50'}
                 textAlign="center"
                 cursor="pointer"
                 transition="all 0.2s"
@@ -79,11 +83,24 @@ const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 
                 <VStack spacing={2}>
                     <Icon as={FiUploadCloud} boxSize={10} color="blue.500" />
                     {isDragActive ? (
-                        <Text fontWeight="medium">Drop the files here...</Text>
+                        <Text
+                            fontWeight="medium"
+                            color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                        >
+                            Drop the files here...
+                        </Text>
                     ) : (
                         <>
-                            <Text fontWeight="medium">Drag & drop files here, or click to select files</Text>
-                            <Text fontSize="sm" color="gray.500">
+                            <Text
+                                fontWeight="medium"
+                                color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                            >
+                                Drag & drop files here, or click to select files
+                            </Text>
+                            <Text
+                                fontSize="sm"
+                                color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
+                            >
                                 Supported formats: PDF, DOCX, TXT, CSV (Max {formatFileSize(maxSize)})
                             </Text>
                         </>
@@ -93,7 +110,13 @@ const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 
 
             {/* Error messages */}
             {fileRejections.length > 0 && (
-                <Box mt={2} p={2} bg="red.50" color="red.500" borderRadius="md">
+                <Box
+                    mt={2}
+                    p={2}
+                    bg={colorMode === 'dark' ? 'red.900' : 'red.50'}
+                    color={colorMode === 'dark' ? 'red.200' : 'red.500'}
+                    borderRadius="md"
+                >
                     <Text fontWeight="medium">Error:</Text>
                     <List fontSize="sm">
                         {fileRejections.map(({ file, errors }) => (
@@ -112,8 +135,9 @@ const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 
                         <ListItem key={file.path}>
                             <Flex
                                 p={2}
-                                bg="white"
+                                bg={colorMode === 'dark' ? 'gray.700' : 'white'}
                                 borderWidth={1}
+                                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
                                 borderRadius="md"
                                 align="center"
                             >
@@ -123,10 +147,18 @@ const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 
                                     color={getFileColor(getFileExt(file.name))}
                                 />
                                 <Box flex="1">
-                                    <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
+                                    <Text
+                                        fontSize="sm"
+                                        fontWeight="medium"
+                                        noOfLines={1}
+                                        color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                                    >
                                         {file.name}
                                     </Text>
-                                    <Text fontSize="xs" color="gray.500">
+                                    <Text
+                                        fontSize="xs"
+                                        color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
+                                    >
                                         {formatFileSize(file.size)}
                                     </Text>
                                 </Box>
@@ -140,6 +172,7 @@ const FileDropzone = ({ onFileAccepted, isUploading, maxSize = 50 * 1024 * 1024 
                                     onClick={() => removeFile(file)}
                                     aria-label="Remove file"
                                     isDisabled={isUploading}
+                                    color={colorMode === 'dark' ? 'gray.200' : 'gray.500'}
                                 />
                             </Flex>
                             {isUploading && (

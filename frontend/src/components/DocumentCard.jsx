@@ -2,12 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
     Box, Heading, Text, Flex, Tag, Badge, IconButton,
-    Menu, MenuButton, MenuList, MenuItem, Icon
+    Menu, MenuButton, MenuList, MenuItem, Icon, useColorMode
 } from '@chakra-ui/react';
 import { FiMoreVertical, FiEye, FiMessageSquare, FiTrash2, FiFileText } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 
 function DocumentCard({ document, onDelete }) {
+    // Get the current color mode
+    const { colorMode } = useColorMode();
+
     // Helper to get file icon based on type
     const getFileIcon = (fileType) => {
         switch (fileType.toLowerCase()) {
@@ -46,9 +49,32 @@ function DocumentCard({ document, onDelete }) {
     // Format date
     const formatDate = (dateString) => {
         try {
-            return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+            // Parse the ISO string properly
+            const date = parseISO(dateString);
+
+            // Check if the date is valid
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+
+            // Get more specific time representation
+            const now = new Date();
+            const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+
+            if (diffInMinutes < 1) {
+                return 'Just now';
+            } else if (diffInMinutes < 60) {
+                return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+            } else if (diffInMinutes < 24 * 60) {
+                const hours = Math.floor(diffInMinutes / 60);
+                return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+            } else {
+                // For anything over 24 hours, use the formatDistanceToNow but make it more accurate
+                return formatDistanceToNow(date, { addSuffix: true });
+            }
         } catch (e) {
-            return 'Invalid date';
+            console.error("Date formatting error:", e);
+            return 'Unknown date';
         }
     };
 
@@ -60,12 +86,14 @@ function DocumentCard({ document, onDelete }) {
             boxShadow="sm"
             transition="all 0.2s"
             _hover={{ boxShadow: 'md' }}
+            borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
         >
             <Flex
                 p={4}
-                bg="gray.50"
+                bg={colorMode === 'dark' ? 'gray.700' : 'gray.50'}
                 align="center"
                 borderBottomWidth={1}
+                borderBottomColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
             >
                 <Icon
                     as={FiFileText}
@@ -74,10 +102,18 @@ function DocumentCard({ document, onDelete }) {
                     mr={3}
                 />
                 <Box flex="1">
-                    <Heading size="sm" noOfLines={1} title={document.filename}>
+                    <Heading
+                        size="sm"
+                        noOfLines={1}
+                        title={document.filename}
+                        color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                    >
                         {document.filename}
                     </Heading>
-                    <Text fontSize="xs" color="gray.500">
+                    <Text
+                        fontSize="xs"
+                        color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
+                    >
                         {formatFileSize(document.size_bytes)} • {formatDate(document.upload_date)}
                     </Text>
                 </Box>
@@ -88,12 +124,18 @@ function DocumentCard({ document, onDelete }) {
                         variant="ghost"
                         size="sm"
                         aria-label="Options"
+                        color={colorMode === 'dark' ? 'gray.200' : 'gray.800'}
                     />
-                    <MenuList>
+                    <MenuList
+                        bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                        borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                    >
                         <MenuItem
                             as={Link}
                             to={`/documents/${document.doc_id}`}
                             icon={<Icon as={FiEye} />}
+                            _hover={{ bg: colorMode === 'dark' ? 'gray.600' : 'gray.100' }}
+                            color={colorMode === 'dark' ? 'white' : 'inherit'}
                         >
                             View Details
                         </MenuItem>
@@ -101,6 +143,8 @@ function DocumentCard({ document, onDelete }) {
                             as={Link}
                             to={`/chat?doc=${document.doc_id}`}
                             icon={<Icon as={FiMessageSquare} />}
+                            _hover={{ bg: colorMode === 'dark' ? 'gray.600' : 'gray.100' }}
+                            color={colorMode === 'dark' ? 'white' : 'inherit'}
                         >
                             Ask Questions
                         </MenuItem>
@@ -108,6 +152,7 @@ function DocumentCard({ document, onDelete }) {
                             icon={<Icon as={FiTrash2} />}
                             color="red.500"
                             onClick={() => onDelete(document.doc_id)}
+                            _hover={{ bg: colorMode === 'dark' ? 'gray.600' : 'gray.100' }}
                         >
                             Delete
                         </MenuItem>
@@ -115,13 +160,19 @@ function DocumentCard({ document, onDelete }) {
                 </Menu>
             </Flex>
 
-            <Box p={4}>
+            <Box
+                p={4}
+                bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+            >
                 <Flex justify="space-between" mb={3}>
                     <Badge colorScheme={getStatusColor(document.status || 'processing')}>
                         {document.status || 'Processing'}
                     </Badge>
                     {document.num_pages && (
-                        <Text fontSize="xs" color="gray.500">
+                        <Text
+                            fontSize="xs"
+                            color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
+                        >
                             {document.num_pages} {document.num_pages === 1 ? 'page' : 'pages'}
                         </Text>
                     )}

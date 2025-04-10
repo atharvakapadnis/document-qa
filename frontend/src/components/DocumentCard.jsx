@@ -5,7 +5,7 @@ import {
     Menu, MenuButton, MenuList, MenuItem, Icon, useColorMode
 } from '@chakra-ui/react';
 import { FiMoreVertical, FiEye, FiMessageSquare, FiTrash2, FiFileText } from 'react-icons/fi';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 function DocumentCard({ document, onDelete }) {
     // Get the current color mode

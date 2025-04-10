@@ -31,7 +31,20 @@ class DocumentStore:
         """Add a document chunk to the vector store"""
         try:
             # Add document identifier to metadata
-            chunk_metadata = {**metadata, "doc_id": doc_id}
+            chunk_metadata = {"doc_id": doc_id}
+            
+            # Clean metadata to ensure all values are valid types
+            for key, value in metadata.items():
+                # Skip None values
+                if value is None:
+                    continue
+                    
+                # Convert values to appropriate types
+                if isinstance(value, (str, int, float, bool)):
+                    chunk_metadata[key] = value
+                else:
+                    # Convert other types to strings
+                    chunk_metadata[key] = str(value)
             
             # Add to ChromaDB
             collection = self._get_user_collection(username)

@@ -12,17 +12,39 @@ code {
         monospace;
 }
 
+/* Message content styling */
 .message-content {
     white-space: pre-wrap;
 }
 
+/* Better bullet point and list styling */
+.message-content ul,
+.message-content ol {
+    padding-left: 1.5rem;
+    margin: 0.75rem 0;
+    list-style-position: outside;
+}
+
+.message-content li {
+    margin-bottom: 0.35rem;
+    display: list-item;
+}
+
+.message-content ul li::marker {
+    color: inherit;
+}
+
+.message-content ol li::marker {
+    color: inherit;
+}
+
+/* Link styling */
 .message-content a {
-    color: #3182ce;
     text-decoration: underline;
 }
 
+/* Code blocks */
 .message-content pre {
-    background-color: #f7fafc;
     padding: 0.5rem;
     border-radius: 0.25rem;
     overflow-x: auto;
@@ -31,13 +53,60 @@ code {
 
 .message-content code {
     font-family: monospace;
-    background-color: #f7fafc;
     padding: 0.1rem 0.2rem;
     border-radius: 0.2rem;
 }
 
-.message-content ul,
-.message-content ol {
-    padding-left: 1.5rem;
+/* Heading spacing */
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+    margin: 1rem 0 0.5rem 0;
+}
+
+/* Paragraph spacing */
+.message-content p {
     margin: 0.5rem 0;
+}
+
+/* Light and dark mode customizations handled in the component via sx prop */
+
+/* Table styling */
+.message-content table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+}
+
+.message-content th,
+.message-content td {
+    border: 1px solid;
+    padding: 0.5rem;
+}
+
+/* Blockquote styling */
+.message-content blockquote {
+    border-left: 3px solid;
+    padding-left: 1rem;
+    margin: 1rem 0;
+}
+
+/* For document comparison visualization */
+[data-theme='dark'] .recharts-text {
+    fill: #E2E8F0;
+}
+
+[data-theme='dark'] .recharts-cartesian-grid line {
+    stroke: #4A5568;
+}
+
+[data-theme='light'] .recharts-text {
+    fill: #1A202C;
+}
+
+[data-theme='light'] .recharts-cartesian-grid line {
+    stroke: #E2E8F0;
 }

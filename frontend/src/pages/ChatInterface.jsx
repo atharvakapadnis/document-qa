@@ -10,7 +10,85 @@ import { FiSend, FiFile } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
 import { sendQuery } from '../api/queries';
-import QueryVisualizer from '../components/QueryVisualizer'
+import QueryVisualizer from '../components/QueryVisualizer';
+
+// CSS for the markdown content to properly style bullets and lists
+const markdownStyles = {
+    light: {
+        color: 'black',
+        '& ul, & ol': {
+            paddingLeft: '2rem',
+            marginBottom: '1rem',
+        },
+        '& li': {
+            marginBottom: '0.5rem',
+            color: 'gray.800',
+        },
+        '& p': {
+            marginBottom: '0.5rem',
+            color: 'gray.800',
+        },
+        '& strong': {
+            fontWeight: 'bold',
+            color: 'gray.900',
+        },
+        '& a': {
+            color: 'blue.500',
+            textDecoration: 'underline',
+        },
+        '& blockquote': {
+            borderLeftWidth: '4px',
+            borderLeftColor: 'gray.200',
+            paddingLeft: '1rem',
+            fontStyle: 'italic',
+            color: 'gray.700',
+        },
+        '& code': {
+            backgroundColor: 'gray.100',
+            padding: '0.2rem',
+            borderRadius: '0.2rem',
+            fontFamily: 'monospace',
+            color: 'gray.800',
+        },
+    },
+    dark: {
+        color: 'white',
+        '& ul, & ol': {
+            paddingLeft: '2rem',
+            marginBottom: '1rem',
+        },
+        '& li': {
+            marginBottom: '0.5rem',
+            color: 'gray.200',
+        },
+        '& p': {
+            marginBottom: '0.5rem',
+            color: 'gray.200',
+        },
+        '& strong': {
+            fontWeight: 'bold',
+            color: 'white',
+        },
+        '& a': {
+            color: 'blue.300',
+            textDecoration: 'underline',
+        },
+        '& blockquote': {
+            borderLeftWidth: '4px',
+            borderLeftColor: 'gray.600',
+            paddingLeft: '1rem',
+            fontStyle: 'italic',
+            color: 'gray.300',
+        },
+        '& code': {
+            backgroundColor: 'gray.700',
+            padding: '0.2rem',
+            borderRadius: '0.2rem',
+            fontFamily: 'monospace',
+            color: 'gray.200',
+        },
+    },
+};
 
 function ChatInterface() {
     const [searchParams] = useSearchParams();
@@ -261,7 +339,10 @@ function ChatInterface() {
                                     )}
                                 </Flex>
 
-                                <Box className="message-content">
+                                <Box
+                                    className="message-content"
+                                    sx={colorMode === 'dark' ? markdownStyles.dark : markdownStyles.light}
+                                >
                                     <ReactMarkdown>
                                         {message.text}
                                     </ReactMarkdown>
@@ -274,7 +355,7 @@ function ChatInterface() {
                                         borderTopWidth={1}
                                         borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
                                     >
-                                        <Text fontSize="xs" fontWeight="bold" mb={1}>
+                                        <Text fontSize="xs" fontWeight="bold" mb={1} color={colorMode === 'dark' ? 'white' : 'gray.800'}>
                                             Sources:
                                         </Text>
                                         {message.sources.map((source, index) => (

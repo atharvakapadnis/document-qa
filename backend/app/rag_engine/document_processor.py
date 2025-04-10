@@ -120,63 +120,103 @@ class DocumentProcessor:
             raise Exception(f"Error processing text file: {str(e)}")
     
     def _process_csv(self, file_path: str) -> List[DocumentChunk]:
-        """Process CSV files into text chunks"""
+        """Process CSV files into text chunks with improved handling"""
         chunks = []
         try:
+            # First, analyze the CSV file to understand its structure
             with open(file_path, 'r', encoding='utf-8') as f:
                 # Try to detect delimiter
-                sample = f.read(4096)
+                sample = f.read(10000)  # Read a larger sample to better detect patterns
                 f.seek(0)
                 
-                sniffer = csv.Sniffer()
-                dialect = sniffer.sniff(sample)
-                has_header = sniffer.has_header(sample)
+                try:
+                    sniffer = csv.Sniffer()
+                    dialect = sniffer.sniff(sample)
+                    has_header = sniffer.has_header(sample)
+                except:
+                    # Default to comma if detection fails
+                    dialect = csv.excel
+                    has_header = True
                 
+                # Read the CSV with the detected dialect
                 csv_reader = csv.reader(f, dialect)
+                rows = list(csv_reader)  # Convert to list to get row count
                 
-                # Extract headers or generate column numbers
-                if has_header:
-                    headers = next(csv_reader)
+                # Extract headers
+                if has_header and len(rows) > 0:
+                    headers = rows[0]
+                    data_rows = rows[1:]
                 else:
-                    # First row might be data, rewind
-                    f.seek(0)
-                    csv_reader = csv.reader(f, dialect)
-                    # Generate column names as Col1, Col2, etc.
-                    first_row = next(csv_reader)
-                    headers = [f"Column{i+1}" for i in range(len(first_row))]
-                    # Reset to start to process all rows as data
-                    f.seek(0)
-                    csv_reader = csv.reader(f, dialect)
+                    # Generate column names if no header
+                    if len(rows) > 0:
+                        headers = [f"Column{i+1}" for i in range(len(rows[0]))]
+                        data_rows = rows
+                    else:
+                        headers = []
+                        data_rows = []
                 
-                # Process each row into a text representation
-                rows = []
-                for i, row in enumerate(csv_reader):
-                    # Skip header row if it exists
-                    if i == 0 and has_header:
-                        continue
-                        
-                    if any(cell.strip() for cell in row):  # Skip empty rows
-                        # Create a text representation of the row with header labels
-                        row_parts = []
+                # Create a CSV summary
+                total_rows = len(data_rows)
+                total_cols = len(headers)
+                
+                summary = f"CSV File: {os.path.basename(file_path)}\n"
+                summary += f"Total rows: {total_rows}, Total columns: {total_cols}\n\n"
+                summary += "Column Headers:\n"
+                for i, header in enumerate(headers):
+                    summary += f"- {header}\n"
+                
+                # Add sample data if available
+                if data_rows:
+                    summary += "\nSample Data (first 5 rows):\n"
+                    for i, row in enumerate(data_rows[:5]):
+                        summary += f"Row {i+1}: "
+                        row_items = []
                         for j, cell in enumerate(row):
                             if j < len(headers):
-                                header = headers[j] if headers[j] else f"Column{j+1}"
-                                row_parts.append(f"{header}: {cell}")
-                        
-                        row_text = f"Row {i}: " + ", ".join(row_parts)
-                        rows.append(row_text)
+                                row_items.append(f"{headers[j]}: {cell}")
+                            else:
+                                row_items.append(f"Column{j+1}: {cell}")
+                        summary += ", ".join(row_items) + "\n"
                 
-                # Combine rows into chunks
-                for i in range(0, len(rows), 10):  # Group by 10 rows per chunk
-                    chunk_text = "\n".join(rows[i:i+10])
-                    # Use string values for metadata to avoid None issues
-                    row_range = f"{i+1}-{min(i+10, len(rows))}"
+                # Add this summary as a chunk
+                chunks.append(DocumentChunk(
+                    text=summary,
+                    metadata={
+                        "source": os.path.basename(file_path),
+                        "content_type": "csv_summary",
+                        "row_count": total_rows,
+                        "column_count": total_cols
+                    }
+                ))
+                
+                # Process chunks of rows (process the whole dataset in reasonable chunks)
+                chunk_size = 50  # Process 50 rows per chunk
+                for chunk_start in range(0, len(data_rows), chunk_size):
+                    chunk_end = min(chunk_start + chunk_size, len(data_rows))
+                    rows_subset = data_rows[chunk_start:chunk_end]
+                    
+                    # Process this chunk of rows
+                    chunk_text = f"CSV Data (Rows {chunk_start+1} to {chunk_end}):\n\n"
+                    
+                    for row_idx, row in enumerate(rows_subset):
+                        actual_row_num = chunk_start + row_idx + 1
+                        row_text = f"Row {actual_row_num}: "
+                        row_items = []
+                        for col_idx, cell in enumerate(row):
+                            if col_idx < len(headers):
+                                header = headers[col_idx]
+                                row_items.append(f"{header}: {cell}")
+                        row_text += ", ".join(row_items)
+                        chunk_text += row_text + "\n"
+                    
+                    # Add this chunk
                     chunks.append(DocumentChunk(
                         text=chunk_text,
                         metadata={
-                            "source": os.path.basename(file_path), 
-                            "rows": row_range,
-                            "file_type": "csv"
+                            "source": os.path.basename(file_path),
+                            "content_type": "csv_data",
+                            "row_range": f"{chunk_start+1}-{chunk_end}",
+                            "total_rows": total_rows
                         }
                     ))
             

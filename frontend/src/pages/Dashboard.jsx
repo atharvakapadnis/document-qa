@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Heading, SimpleGrid, Text, Button, Icon, Input, Tag, HStack,
     VStack, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader,
-    ModalCloseButton, ModalBody, ModalFooter, useToast, Spinner, Flex
+    ModalCloseButton, ModalBody, ModalFooter, useToast, Spinner, Flex,
+    useColorMode
 } from '@chakra-ui/react';
 import { FiUpload, FiFile } from 'react-icons/fi';
 
@@ -18,6 +19,7 @@ function Dashboard() {
     const [searchQuery, setSearchQuery] = useState('');
     const [tags, setTags] = useState([]);
     const [currentTag, setCurrentTag] = useState('');
+    const { colorMode } = useColorMode();
 
     // Fetch documents
     const { data: documents, isLoading, isError } = useQuery(
@@ -105,7 +107,7 @@ function Dashboard() {
     return (
         <Box p={5}>
             <Flex justify="space-between" align="center" mb={6}>
-                <Heading size="lg">Your Documents</Heading>
+                <Heading size="lg" color={colorMode === 'dark' ? 'white' : 'gray.800'}>Your Documents</Heading>
                 <Button
                     colorScheme="blue"
                     leftIcon={<Icon as={FiUpload} />}
@@ -120,21 +122,47 @@ function Dashboard() {
                 mb={6}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                _hover={{
+                    borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500',
+                }}
+                _focus={{
+                    borderColor: 'blue.500',
+                    boxShadow: colorMode === 'dark'
+                        ? '0 0 0 1px var(--chakra-colors-blue-500)'
+                        : '0 0 0 1px var(--chakra-colors-blue-500)'
+                }}
             />
 
             {isLoading ? (
                 <Flex justify="center" mt={10}>
-                    <Spinner size="xl" />
+                    <Spinner size="xl" color={colorMode === 'dark' ? 'blue.300' : 'blue.500'} />
                 </Flex>
             ) : isError ? (
                 <Box textAlign="center" mt={10}>
-                    <Text>Error loading documents. Please try again later.</Text>
+                    <Text color={colorMode === 'dark' ? 'red.300' : 'red.500'}>
+                        Error loading documents. Please try again later.
+                    </Text>
                 </Box>
             ) : filteredDocuments.length === 0 ? (
-                <Box textAlign="center" mt={10} p={6} borderWidth={1} borderRadius="md">
-                    <Icon as={FiFile} boxSize={12} color="gray.400" />
-                    <Heading size="md" mt={4} mb={2}>No documents found</Heading>
-                    <Text mb={4}>Upload your first document to get started</Text>
+                <Box
+                    textAlign="center"
+                    mt={10}
+                    p={6}
+                    borderWidth={1}
+                    borderRadius="md"
+                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                    bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                >
+                    <Icon as={FiFile} boxSize={12} color={colorMode === 'dark' ? 'gray.300' : 'gray.400'} />
+                    <Heading size="md" mt={4} mb={2} color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                        No documents found
+                    </Heading>
+                    <Text mb={4} color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}>
+                        Upload your first document to get started
+                    </Text>
                     <Button colorScheme="blue" onClick={onOpen}>Upload Document</Button>
                 </Box>
             ) : (
@@ -152,20 +180,47 @@ function Dashboard() {
             {/* Upload Document Modal */}
             <Modal isOpen={isOpen} onClose={onClose} size="lg">
                 <ModalOverlay />
-                <ModalContent>
-                    <ModalHeader>Upload Document</ModalHeader>
-                    <ModalCloseButton />
+                <ModalContent
+                    bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+                    color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                >
+                    <ModalHeader
+                        borderBottomWidth={1}
+                        borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
+                    >
+                        Upload Document
+                    </ModalHeader>
+                    <ModalCloseButton color={colorMode === 'dark' ? 'white' : 'gray.800'} />
                     <ModalBody>
                         <FileDropzone onFileAccepted={handleUpload} isUploading={uploadMutation.isLoading} />
 
                         <Box mt={4}>
-                            <Heading size="sm" mb={2}>Add Tags (Optional)</Heading>
+                            <Heading
+                                size="sm"
+                                mb={2}
+                                color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                            >
+                                Add Tags (Optional)
+                            </Heading>
                             <HStack mb={2}>
                                 <Input
                                     placeholder="Enter tag"
                                     value={currentTag}
                                     onChange={(e) => setCurrentTag(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                                    bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                                    color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                    _hover={{
+                                        borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500',
+                                    }}
+                                    _focus={{
+                                        borderColor: 'blue.500',
+                                        boxShadow: colorMode === 'dark'
+                                            ? '0 0 0 1px var(--chakra-colors-blue-500)'
+                                            : '0 0 0 1px var(--chakra-colors-blue-500)'
+                                    }}
                                 />
                                 <Button onClick={handleAddTag}>Add</Button>
                             </HStack>
@@ -179,6 +234,7 @@ function Dashboard() {
                                             ml={1}
                                             onClick={() => handleRemoveTag(tag)}
                                             variant="ghost"
+                                            color="white"
                                         >
                                             ×
                                         </Button>
@@ -189,13 +245,18 @@ function Dashboard() {
 
                         {uploadMutation.isLoading && (
                             <VStack mt={4}>
-                                <Spinner />
-                                <Text>Uploading document...</Text>
+                                <Spinner color={colorMode === 'dark' ? 'blue.300' : 'blue.500'} />
+                                <Text color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                                    Uploading document...
+                                </Text>
                             </VStack>
                         )}
                     </ModalBody>
 
-                    <ModalFooter>
+                    <ModalFooter
+                        borderTopWidth={1}
+                        borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
+                    >
                         <Button variant="ghost" mr={3} onClick={onClose}>
                             Cancel
                         </Button>

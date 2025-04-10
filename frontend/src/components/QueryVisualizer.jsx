@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box, Text, Heading, Flex, Tag, Progress, Select,
-    Tabs, TabList, TabPanels, Tab, TabPanel
+    Tabs, TabList, TabPanels, Tab, TabPanel, useColorMode
 } from '@chakra-ui/react';
 import {
     PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis,
@@ -14,6 +14,7 @@ const QueryVisualizer = ({ sources, confidence, queryTime }) => {
     const [sourceStats, setSourceStats] = useState([]);
     const [pageStats, setPageStats] = useState([]);
     const [visualizationType, setVisualizationType] = useState('sources');
+    const { colorMode } = useColorMode();
 
     useEffect(() => {
         if (sources && sources.length > 0) {
@@ -48,37 +49,94 @@ const QueryVisualizer = ({ sources, confidence, queryTime }) => {
     }, [sources]);
 
     return (
-        <Box bg="white" p={4} borderRadius="md" boxShadow="sm" mb={4}>
-            <Heading size="md" mb={3}>Query Results Analysis</Heading>
+        <Box
+            bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+            p={4}
+            borderRadius="md"
+            boxShadow="sm"
+            mb={4}
+            borderWidth={1}
+            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+        >
+            <Heading
+                size="md"
+                mb={3}
+                color={colorMode === 'dark' ? 'white' : 'gray.800'}
+            >
+                Query Results Analysis
+            </Heading>
 
             <Flex mb={4} alignItems="center">
-                <Text fontWeight="bold" mr={2}>Confidence:</Text>
+                <Text
+                    fontWeight="bold"
+                    mr={2}
+                    color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                >
+                    Confidence:
+                </Text>
                 <Box flex="1">
                     <Progress
                         value={confidence * 100}
                         colorScheme={confidence > 0.7 ? "green" : confidence > 0.4 ? "yellow" : "red"}
                         borderRadius="md"
                         size="sm"
+                        bg={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
                     />
                 </Box>
-                <Text ml={2}>{(confidence * 100).toFixed(0)}%</Text>
+                <Text
+                    ml={2}
+                    color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                >
+                    {(confidence * 100).toFixed(0)}%
+                </Text>
             </Flex>
 
-            <Text mb={4}>Query processed in {queryTime.toFixed(2)} seconds</Text>
+            <Text
+                mb={4}
+                color={colorMode === 'dark' ? 'gray.200' : 'gray.800'}
+            >
+                Query processed in {queryTime.toFixed(2)} seconds
+            </Text>
 
             <Select
                 mb={4}
                 value={visualizationType}
                 onChange={(e) => setVisualizationType(e.target.value)}
+                bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+                color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                _hover={{
+                    borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500',
+                }}
             >
                 <option value="sources">Source Distribution</option>
                 <option value="pages">Page Distribution</option>
             </Select>
 
-            <Tabs>
+            <Tabs
+                variant="line"
+                colorScheme="blue"
+                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+            >
                 <TabList>
-                    <Tab>Chart</Tab>
-                    <Tab>Table</Tab>
+                    <Tab
+                        color={colorMode === 'dark' ? 'gray.200' : 'gray.600'}
+                        _selected={{
+                            color: colorMode === 'dark' ? 'white' : 'blue.600',
+                            borderColor: 'blue.500'
+                        }}
+                    >
+                        Chart
+                    </Tab>
+                    <Tab
+                        color={colorMode === 'dark' ? 'gray.200' : 'gray.600'}
+                        _selected={{
+                            color: colorMode === 'dark' ? 'white' : 'blue.600',
+                            borderColor: 'blue.500'
+                        }}
+                    >
+                        Table
+                    </Tab>
                 </TabList>
 
                 <TabPanels>
@@ -111,11 +169,29 @@ const QueryVisualizer = ({ sources, confidence, queryTime }) => {
                                         data={pageStats}
                                         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                     >
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip formatter={(value) => [`${value} references`, 'Count']} />
-                                        <Legend />
+                                        <CartesianGrid strokeDasharray="3 3" stroke={colorMode === 'dark' ? 'gray.600' : 'gray.200'} />
+                                        <XAxis
+                                            dataKey="name"
+                                            tick={{ fill: colorMode === 'dark' ? 'white' : 'gray.800' }}
+                                        />
+                                        <YAxis
+                                            tick={{ fill: colorMode === 'dark' ? 'white' : 'gray.800' }}
+                                        />
+                                        <Tooltip
+                                            formatter={(value) => [`${value} references`, 'Count']}
+                                            contentStyle={{
+                                                backgroundColor: colorMode === 'dark' ? '#2D3748' : '#FFF',
+                                                color: colorMode === 'dark' ? '#FFF' : '#1A202C',
+                                                border: colorMode === 'dark' ? '1px solid #4A5568' : '1px solid #E2E8F0'
+                                            }}
+                                        />
+                                        <Legend
+                                            formatter={(value) => (
+                                                <span style={{ color: colorMode === 'dark' ? '#FFF' : '#1A202C' }}>
+                                                    {value}
+                                                </span>
+                                            )}
+                                        />
                                         <Bar dataKey="count" fill="#8884d8">
                                             {pageStats.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -129,42 +205,85 @@ const QueryVisualizer = ({ sources, confidence, queryTime }) => {
 
                     <TabPanel>
                         <Box overflowX="auto">
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr>
-                                        <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #E2E8F0' }}>
+                            <Box
+                                as="table"
+                                width="100%"
+                                style={{
+                                    borderCollapse: 'collapse',
+                                    color: colorMode === 'dark' ? 'white' : 'inherit'
+                                }}
+                            >
+                                <Box as="thead">
+                                    <Box as="tr">
+                                        <Box
+                                            as="th"
+                                            padding="8px"
+                                            textAlign="left"
+                                            borderBottom="1px solid"
+                                            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                        >
                                             {visualizationType === 'sources' ? 'Source' : 'Page'}
-                                        </th>
-                                        <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #E2E8F0' }}>
+                                        </Box>
+                                        <Box
+                                            as="th"
+                                            padding="8px"
+                                            textAlign="right"
+                                            borderBottom="1px solid"
+                                            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                        >
                                             References
-                                        </th>
-                                        <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #E2E8F0' }}>
+                                        </Box>
+                                        <Box
+                                            as="th"
+                                            padding="8px"
+                                            textAlign="right"
+                                            borderBottom="1px solid"
+                                            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                        >
                                             Percentage
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                                <Box as="tbody">
                                     {(visualizationType === 'sources' ? sourceStats : pageStats).map((item, index) => {
                                         const total = (visualizationType === 'sources' ? sourceStats : pageStats)
                                             .reduce((sum, i) => sum + i.count, 0);
                                         const percentage = (item.count / total) * 100;
 
                                         return (
-                                            <tr key={index}>
-                                                <td style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #E2E8F0' }}>
+                                            <Box as="tr" key={index}>
+                                                <Box
+                                                    as="td"
+                                                    padding="8px"
+                                                    textAlign="left"
+                                                    borderBottom="1px solid"
+                                                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                                >
                                                     {item.name}
-                                                </td>
-                                                <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #E2E8F0' }}>
+                                                </Box>
+                                                <Box
+                                                    as="td"
+                                                    padding="8px"
+                                                    textAlign="right"
+                                                    borderBottom="1px solid"
+                                                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                                >
                                                     {item.count}
-                                                </td>
-                                                <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #E2E8F0' }}>
+                                                </Box>
+                                                <Box
+                                                    as="td"
+                                                    padding="8px"
+                                                    textAlign="right"
+                                                    borderBottom="1px solid"
+                                                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                                >
                                                     {percentage.toFixed(1)}%
-                                                </td>
-                                            </tr>
+                                                </Box>
+                                            </Box>
                                         );
                                     })}
-                                </tbody>
-                            </table>
+                                </Box>
+                            </Box>
                         </Box>
                     </TabPanel>
                 </TabPanels>

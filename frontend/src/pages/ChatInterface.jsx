@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import {
     Box, Flex, VStack, Input, Button, Text, Heading, Spinner,
-    useToast, Tag, Avatar, IconButton, Divider, Select, Card, CardBody
+    useToast, Tag, Avatar, IconButton, Divider, Select, Card, CardBody,
+    useColorMode
 } from '@chakra-ui/react';
 import { FiSend, FiFile } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +20,7 @@ function ChatInterface() {
     const [messages, setMessages] = useState([]);
     const [isQuerying, setIsQuerying] = useState(false);
     const [selectedDocs, setSelectedDocs] = useState([]);
+    const { colorMode } = useColorMode();
 
     // Fetch user's documents
     const { data: documents, isLoading: isLoadingDocs } = useQuery(
@@ -88,6 +90,7 @@ function ChatInterface() {
                 text: response.answer,
                 sources: response.sources,
                 confidence: response.confidence,
+                query_time_seconds: response.query_time_seconds,
                 timestamp: new Date().toISOString(),
             };
 
@@ -127,8 +130,19 @@ function ChatInterface() {
     return (
         <Box h="calc(100vh - 80px)" display="flex" flexDirection="column">
             {/* Document selection */}
-            <Box p={4} bg="gray.50" borderBottomWidth={1}>
-                <Heading size="sm" mb={2}>Active Documents</Heading>
+            <Box
+                p={4}
+                bg={colorMode === 'dark' ? 'gray.700' : 'gray.50'}
+                borderBottomWidth={1}
+                borderBottomColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+            >
+                <Heading
+                    size="sm"
+                    mb={2}
+                    color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                >
+                    Active Documents
+                </Heading>
                 <Flex alignItems="center" mb={2}>
                     <Select
                         placeholder="Select documents to query"
@@ -136,6 +150,12 @@ function ChatInterface() {
                         disabled={isLoadingDocs}
                         flex="1"
                         mr={2}
+                        bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+                        color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                        borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                        _hover={{
+                            borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500'
+                        }}
                     >
                         {documents?.map(doc => (
                             <option key={doc.doc_id} value={doc.doc_id}>
@@ -147,7 +167,10 @@ function ChatInterface() {
 
                 <Flex wrap="wrap" gap={2}>
                     {selectedDocs.length === 0 ? (
-                        <Text fontSize="sm" color="gray.500">
+                        <Text
+                            fontSize="sm"
+                            color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
+                        >
                             No documents selected. All documents will be queried.
                         </Text>
                     ) : (
@@ -180,11 +203,24 @@ function ChatInterface() {
                 spacing={4}
                 p={4}
                 align="stretch"
+                bg={colorMode === 'dark' ? 'gray.800' : 'white'}
             >
                 {messages.length === 0 ? (
-                    <Flex direction="column" justify="center" align="center" h="100%" textAlign="center">
-                        <Heading size="md" mb={2}>Ask questions about your documents</Heading>
-                        <Text color="gray.500">
+                    <Flex
+                        direction="column"
+                        justify="center"
+                        align="center"
+                        h="100%"
+                        textAlign="center"
+                    >
+                        <Heading
+                            size="md"
+                            mb={2}
+                            color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                        >
+                            Ask questions about your documents
+                        </Heading>
+                        <Text color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}>
                             Start by typing a question about your uploaded documents.
                         </Text>
                     </Flex>
@@ -196,12 +232,13 @@ function ChatInterface() {
                         >
                             <Box
                                 maxW="80%"
-                                bg={message.sender === 'user' ? 'blue.500' : 'white'}
-                                color={message.sender === 'user' ? 'white' : 'black'}
+                                bg={message.sender === 'user' ? 'blue.500' : (colorMode === 'dark' ? 'gray.700' : 'white')}
+                                color={message.sender === 'user' ? 'white' : (colorMode === 'dark' ? 'white' : 'black')}
                                 p={3}
                                 borderRadius="lg"
                                 boxShadow="md"
                                 borderWidth={message.sender === 'user' ? 0 : 1}
+                                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
                             >
                                 <Flex align="center" mb={2}>
                                     <Avatar
@@ -231,12 +268,21 @@ function ChatInterface() {
                                 </Box>
 
                                 {message.sources && message.sources.length > 0 && (
-                                    <Box mt={3} pt={2} borderTopWidth={1} borderColor="gray.200">
+                                    <Box
+                                        mt={3}
+                                        pt={2}
+                                        borderTopWidth={1}
+                                        borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                                    >
                                         <Text fontSize="xs" fontWeight="bold" mb={1}>
                                             Sources:
                                         </Text>
                                         {message.sources.map((source, index) => (
-                                            <Text key={index} fontSize="xs" color="gray.600">
+                                            <Text
+                                                key={index}
+                                                fontSize="xs"
+                                                color={colorMode === 'dark' ? 'gray.300' : 'gray.600'}
+                                            >
                                                 {source.filename}
                                                 {source.page && ` - Page ${source.page}`}
                                             </Text>
@@ -260,7 +306,12 @@ function ChatInterface() {
             </VStack>
 
             {/* Input area */}
-            <Box p={4} borderTopWidth={1}>
+            <Box
+                p={4}
+                borderTopWidth={1}
+                borderTopColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
+                bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+            >
                 <form onSubmit={handleSendQuery}>
                     <Flex>
                         <Input
@@ -269,6 +320,18 @@ function ChatInterface() {
                             onChange={(e) => setQuery(e.target.value)}
                             mr={2}
                             disabled={isQuerying}
+                            bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                            color={colorMode === 'dark' ? 'white' : 'black'}
+                            borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                            _hover={{
+                                borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500'
+                            }}
+                            _focus={{
+                                borderColor: 'blue.500',
+                                boxShadow: colorMode === 'dark'
+                                    ? '0 0 0 1px var(--chakra-colors-blue-500)'
+                                    : '0 0 0 1px var(--chakra-colors-blue-500)'
+                            }}
                         />
                         <Button
                             colorScheme="blue"

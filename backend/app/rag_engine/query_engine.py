@@ -75,7 +75,7 @@ class QueryEngine:
         return formatted_context
     
     def query(self, query: str, username: str, document_ids: Optional[List[str]] = None, 
-             max_results: int = 5) -> Dict[str, Any]:
+             max_results: int = 10) -> Dict[str, Any]:  # Increased max_results to 10
         """Process a query and return the answer with sources"""
         try:
             # Start timing
@@ -116,28 +116,47 @@ class QueryEngine:
                     }
                     sources.append(source_info)
             
-            # Calculate confidence based on relevance scores
-            confidence = 0.0
-            if "distances" in search_results and search_results["distances"]:
+            # Calculate confidence based on relevance scores - IMPROVED CALCULATION
+            confidence = 0.5  # Default confidence level
+            if "distances" in search_results and search_results["distances"] and len(search_results["distances"][0]) > 0:
                 distances = search_results["distances"][0]
-
-                # 1. Calculate weighted average based on positions (earlier chunks have higher weight)
-                weights = [1.0 / (i + 1) for i in range(len(distances))]
-                total_weight = sum(weights)
-                normalized_weights = [w / total_weight for w in weights]
                 
-                # 2. Convert distances to similarities (higher is better)
-                similarities = [max(0, 1 - d) for d in distances]
+                # Convert distances to similarities (where 0 distance = 1.0 similarity)
+                # Handle both cosine similarity (where smaller is better) and
+                # other metrics (where larger might be better)
+                if min(distances) >= 0 and max(distances) <= 1:
+                    # Likely cosine similarity, where smaller is better
+                    similarities = [1 - d for d in distances]
+                else:
+                    # For other distance metrics, normalize to 0-1 range
+                    max_dist = max(distances)
+                    min_dist = min(distances)
+                    range_dist = max_dist - min_dist if max_dist > min_dist else 1
+                    similarities = [1 - ((d - min_dist) / range_dist) for d in distances]
                 
-                # 3. Apply weighted average
-                weighted_confidence = sum(s * w for s, w in zip(similarities, normalized_weights))
+                # Calculate weighted average of top 3 similarities
+                top_similarities = sorted(similarities, reverse=True)[:3]
+                if top_similarities:
+                    # Weight the most relevant chunks higher
+                    weights = [0.6, 0.3, 0.1][:len(top_similarities)]
+                    # Normalize weights if needed
+                    weight_sum = sum(weights)
+                    weights = [w/weight_sum for w in weights]
+                    
+                    # Calculate weighted confidence
+                    confidence = sum(s * w for s, w in zip(top_similarities, weights))
+                    
+                    # Apply scaling to make confidence more meaningful
+                    # This makes mid-range similarities produce moderate confidence scores
+                    if confidence < 0.2:
+                        confidence = confidence * 0.5  # Very low remains very low
+                    elif confidence < 0.5:
+                        confidence = 0.2 + (confidence - 0.2) * 0.7  # Scale up low-mid range
+                    else:
+                        confidence = 0.41 + (confidence - 0.5) * 1.18  # Scale up mid-high range
                 
-                # 4. Apply a sigmoid function to get a more intuitive distribution
-                from math import exp
-                confidence = 1 / (1 + exp(-10 * (weighted_confidence - 0.5)))
-                
-                # Ensure confidence is between 0 and 1
-                confidence = min(1.0, max(0.0, confidence))
+                # Ensure confidence is between 0.01 and 1.0 (never exactly 0)
+                confidence = max(0.01, min(1.0, confidence))
             
             # End timing
             query_time = time.time() - start_time

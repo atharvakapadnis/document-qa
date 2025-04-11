@@ -15,10 +15,12 @@ class JSONDatabase:
         self.db_path = db_path
         self.users_file = f"{db_path}/users.json"
         self.documents_dir = f"{db_path}/documents"
+        self.chats_dir = f"{db_path}/chats"
         
         # Initialize database structure
         os.makedirs(db_path, exist_ok=True)
         os.makedirs(self.documents_dir, exist_ok=True)
+        os.makedirs(self.chats_dir, exist_ok=True)
         
         # Create users file if it doesn't exist
         if not os.path.exists(self.users_file):
@@ -62,6 +64,9 @@ class JSONDatabase:
         
         # Create user document directory
         os.makedirs(f"{self.documents_dir}/{user_data['username']}", exist_ok=True)
+        
+        # Create user chat directory
+        os.makedirs(f"{self.chats_dir}/{user_data['username']}", exist_ok=True)
         
         return user_data
     
@@ -130,6 +135,103 @@ class JSONDatabase:
         self.save_document(username, doc)
         
         return doc
+    
+    # Chat-related methods
+    def get_chats_for_user(self, username: str) -> List[Dict[str, Any]]:
+        """Get all chats for a user"""
+        user_chats_dir = f"{self.chats_dir}/{username}"
+        
+        if not os.path.exists(user_chats_dir):
+            return []
+        
+        chats = []
+        for filename in os.listdir(user_chats_dir):
+            if filename.endswith('.json'):
+                with open(f"{user_chats_dir}/{filename}", 'r') as f:
+                    chat = json.load(f)
+                    chats.append(chat)
+        
+        # Sort by created_at date (newest first)
+        chats.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return chats
+    
+    def get_chat(self, username: str, chat_id: str) -> Optional[Dict[str, Any]]:
+        """Get a chat by ID"""
+        chat_path = f"{self.chats_dir}/{username}/{chat_id}.json"
+        
+        if not os.path.exists(chat_path):
+            return None
+        
+        with open(chat_path, 'r') as f:
+            return json.load(f)
+    
+    def create_chat(self, username: str, chat_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new chat"""
+        user_chats_dir = f"{self.chats_dir}/{username}"
+        os.makedirs(user_chats_dir, exist_ok=True)
+        
+        # Check if user already has max number of chats (5)
+        existing_chats = self.get_chats_for_user(username)
+        if len(existing_chats) >= 5:
+            # Delete the oldest chat
+            oldest_chat = min(existing_chats, key=lambda x: x.get("created_at", ""))
+            self.delete_chat(username, oldest_chat["chat_id"])
+        
+        # Generate chat ID if not provided
+        if "chat_id" not in chat_data:
+            chat_data["chat_id"] = str(uuid.uuid4())
+        
+        # Set creation and update timestamps
+        current_time = datetime.utcnow().isoformat()
+        chat_data["created_at"] = current_time
+        chat_data["updated_at"] = current_time
+        
+        # Initialize empty messages array if not provided
+        if "messages" not in chat_data:
+            chat_data["messages"] = []
+        
+        # Save chat
+        chat_path = f"{user_chats_dir}/{chat_data['chat_id']}.json"
+        with open(chat_path, 'w') as f:
+            json.dump(chat_data, f)
+        
+        return chat_data
+    
+    def update_chat(self, username: str, chat_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update a chat"""
+        chat = self.get_chat(username, chat_id)
+        
+        if not chat:
+            return None
+        
+        # Update fields
+        for key, value in updates.items():
+            chat[key] = value
+        
+        # Update timestamp
+        chat["updated_at"] = datetime.utcnow().isoformat()
+        
+        # Save updated chat
+        user_chats_dir = f"{self.chats_dir}/{username}"
+        chat_path = f"{user_chats_dir}/{chat_id}.json"
+        with open(chat_path, 'w') as f:
+            json.dump(chat, f)
+        
+        return chat
+    
+    def delete_chat(self, username: str, chat_id: str) -> bool:
+        """Delete a chat"""
+        chat_path = f"{self.chats_dir}/{username}/{chat_id}.json"
+        
+        if not os.path.exists(chat_path):
+            return False
+        
+        os.remove(chat_path)
+        return True
+    
+    def get_chat_count(self, username: str) -> int:
+        """Get the number of chats for a user"""
+        return len(self.get_chats_for_user(username))
     
     def _read_users(self) -> List[Dict[str, Any]]:
         """Read users from file"""

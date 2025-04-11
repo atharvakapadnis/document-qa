@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { mode } from '@chakra-ui/theme-tools'
@@ -77,8 +77,11 @@ function App() {
                                     <Route index element={<Dashboard />} />
                                     <Route path="documents/:documentId" element={<DocumentView />} />
                                     <Route path="chat" element={<ChatInterface />} />
-                                    {/*  <Route path="compare" element={<DocumentCompare />} />*/}
+                                    <Route path="chat/:chatId" element={<ChatInterface />} />
                                 </Route>
+
+                                {/* Redirect any other routes to dashboard */}
+                                <Route path="*" element={<Navigate to="/" replace />} />
                             </Routes>
                         </Router>
                     </AuthProvider>

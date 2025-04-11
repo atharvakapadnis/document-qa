@@ -1,16 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Flex, VStack, Input, Button, Text, Heading, Spinner,
     useToast, Tag, Avatar, IconButton, Divider, Select, Card, CardBody,
-    useColorMode
+    useColorMode, Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
+    DrawerBody, DrawerCloseButton, useDisclosure, Tooltip, AlertDialog,
+    AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent,
+    AlertDialogOverlay
 } from '@chakra-ui/react';
-import { FiSend, FiFile } from 'react-icons/fi';
+import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiX, FiList } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
 import { sendQuery } from '../api/queries';
+import {
+    fetchChats, fetchChat, createChat, updateChat,
+    deleteChat, addMessage, getChatCount
+} from '../api/chats';
 import QueryVisualizer from '../components/QueryVisualizer';
+import ChatHistory from '../components/ChatHistory';
 
 // CSS for the markdown content to properly style bullets and lists
 const markdownStyles = {
@@ -93,17 +101,103 @@ const markdownStyles = {
 function ChatInterface() {
     const [searchParams] = useSearchParams();
     const toast = useToast();
+    const queryClient = useQueryClient();
     const messagesEndRef = useRef(null);
     const [query, setQuery] = useState('');
     const [messages, setMessages] = useState([]);
     const [isQuerying, setIsQuerying] = useState(false);
     const [selectedDocs, setSelectedDocs] = useState([]);
+    const [activeChat, setActiveChat] = useState(null);
+    const [unsavedChanges, setUnsavedChanges] = useState(false);
+    const [savedTitle, setSavedTitle] = useState('');
     const { colorMode } = useColorMode();
+    const {
+        isOpen: isHistoryOpen,
+        onOpen: onHistoryOpen,
+        onClose: onHistoryClose
+    } = useDisclosure();
+    const {
+        isOpen: isNewChatAlertOpen,
+        onOpen: onNewChatAlertOpen,
+        onClose: onNewChatAlertClose
+    } = useDisclosure();
+    const cancelRef = React.useRef();
 
     // Fetch user's documents
     const { data: documents, isLoading: isLoadingDocs } = useQuery(
         'documents',
         fetchDocuments
+    );
+
+    // Fetch chat count
+    const { data: chatCountData } = useQuery(
+        'chatCount',
+        getChatCount
+    );
+
+    // Fetch chat data if we have an active chat
+    const {
+        data: chatData,
+        isLoading: isLoadingChat,
+        refetch: refetchChat
+    } = useQuery(
+        ['chat', activeChat],
+        () => fetchChat(activeChat),
+        {
+            enabled: !!activeChat,
+            onSuccess: (data) => {
+                setMessages(data.messages || []);
+                setSavedTitle(data.title);
+                setSelectedDocs(data.document_ids || []);
+                setUnsavedChanges(false);
+            }
+        }
+    );
+
+    // Create chat mutation
+    const createChatMutation = useMutation(createChat, {
+        onSuccess: (data) => {
+            setActiveChat(data.chat_id);
+            setSavedTitle(data.title);
+            queryClient.invalidateQueries('chats');
+            queryClient.invalidateQueries('chatCount');
+            toast({
+                title: 'Chat created',
+                status: 'success',
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+    });
+
+    // Update chat mutation
+    const updateChatMutation = useMutation(
+        (data) => updateChat(activeChat, data),
+        {
+            onSuccess: () => {
+                queryClient.invalidateQueries(['chat', activeChat]);
+                queryClient.invalidateQueries('chats');
+                setUnsavedChanges(false);
+                toast({
+                    title: 'Chat updated',
+                    status: 'success',
+                    duration: 3000,
+                    isClosable: true,
+                });
+            }
+        }
+    );
+
+    // Add message mutation
+    const addMessageMutation = useMutation(
+        ({ chatId, message }) => addMessage(chatId, message),
+        {
+            onSuccess: () => {
+                queryClient.invalidateQueries(['chat', activeChat]);
+                queryClient.invalidateQueries('chats');
+                setUnsavedChanges(false);
+            }
+        }
     );
 
     // Check if a document ID is specified in the URL
@@ -112,12 +206,25 @@ function ChatInterface() {
         if (docId) {
             setSelectedDocs([docId]);
         }
+
+        // Check if a chat ID is specified in the URL
+        const chatId = searchParams.get('chat');
+        if (chatId) {
+            setActiveChat(chatId);
+        }
     }, [searchParams]);
 
     // Scroll to bottom when messages change
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    // Mark changes as unsaved when messages are updated
+    useEffect(() => {
+        if (activeChat && messages.length > 0) {
+            setUnsavedChanges(true);
+        }
+    }, [messages, activeChat]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -128,12 +235,14 @@ function ChatInterface() {
         const value = e.target.value;
         if (value && !selectedDocs.includes(value)) {
             setSelectedDocs([...selectedDocs, value]);
+            setUnsavedChanges(true);
         }
     };
 
     // Remove a document from selection
     const handleRemoveDocument = (docId) => {
         setSelectedDocs(selectedDocs.filter(id => id !== docId));
+        setUnsavedChanges(true);
     };
 
     // Send a query to the backend
@@ -144,12 +253,14 @@ function ChatInterface() {
 
         // Add user message
         const userMessage = {
-            id: Date.now(),
+            id: Date.now().toString(),
             sender: 'user',
             text: query,
             timestamp: new Date().toISOString(),
         };
-        setMessages(prevMessages => [...prevMessages, userMessage]);
+
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
 
         // Clear input
         setQuery('');
@@ -163,7 +274,7 @@ function ChatInterface() {
 
             // Add system message with response
             const systemMessage = {
-                id: Date.now() + 1,
+                id: (Date.now() + 1).toString(),
                 sender: 'system',
                 text: response.answer,
                 sources: response.sources,
@@ -172,20 +283,44 @@ function ChatInterface() {
                 timestamp: new Date().toISOString(),
             };
 
-            setMessages(prevMessages => [...prevMessages, systemMessage]);
+            const updatedMessages = [...newMessages, systemMessage];
+            setMessages(updatedMessages);
+
+            // Save to chat if we have an active chat
+            if (activeChat) {
+                addMessageMutation.mutate({
+                    chatId: activeChat,
+                    message: userMessage
+                });
+
+                addMessageMutation.mutate({
+                    chatId: activeChat,
+                    message: systemMessage
+                });
+            } else {
+                setUnsavedChanges(true);
+            }
+
         } catch (error) {
             console.error("Error sending query:", error);
 
             // Add error message
             const errorMessage = {
-                id: Date.now() + 1,
+                id: (Date.now() + 1).toString(),
                 sender: 'system',
                 text: 'Sorry, there was an error processing your query. Please try again.',
                 error: true,
                 timestamp: new Date().toISOString(),
             };
 
-            setMessages(prevMessages => [...prevMessages, errorMessage]);
+            setMessages([...newMessages, errorMessage]);
+
+            if (activeChat) {
+                addMessageMutation.mutate({
+                    chatId: activeChat,
+                    message: errorMessage
+                });
+            }
 
             toast({
                 title: 'Error',
@@ -205,8 +340,148 @@ function ChatInterface() {
         return doc ? doc.filename : docId;
     };
 
+    // Create a new chat
+    const handleCreateChat = async (title) => {
+        const willExceedLimit = (chatCountData?.total || 0) >= 5;
+
+        if (willExceedLimit) {
+            onNewChatAlertOpen();
+            return;
+        }
+
+        await createNewChat(title);
+    };
+
+    // Create new chat helper
+    const createNewChat = async (title = "New Chat") => {
+        try {
+            await createChatMutation.mutateAsync({
+                title,
+                document_ids: selectedDocs,
+                messages: messages
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to create new chat',
+                status: 'error',
+                duration: 5000,
+                isClosable: true,
+            });
+        }
+    };
+
+    // Handle new chat after limit warning
+    const handleProceedWithNewChat = () => {
+        onNewChatAlertClose();
+        createNewChat();
+    };
+
+    // Save current chat
+    const handleSaveChat = async () => {
+        if (!activeChat) {
+            // Create new chat if none exists
+            handleCreateChat(savedTitle || "New Chat");
+            return;
+        }
+
+        try {
+            await updateChatMutation.mutateAsync({
+                title: savedTitle,
+                messages: messages,
+                document_ids: selectedDocs
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to save chat',
+                status: 'error',
+                duration: 5000,
+                isClosable: true,
+            });
+        }
+    };
+
+    // Select a chat from history
+    const handleSelectChat = (chatId) => {
+        // Check for unsaved changes
+        if (unsavedChanges && messages.length > 0) {
+            if (window.confirm('You have unsaved changes. Do you want to save them before switching chats?')) {
+                handleSaveChat();
+            }
+        }
+
+        setActiveChat(chatId);
+        onHistoryClose();
+    };
+
+    // Start a new chat
+    const handleNewChat = () => {
+        // Check for unsaved changes
+        if (unsavedChanges && messages.length > 0) {
+            if (window.confirm('You have unsaved changes. Do you want to save them before creating a new chat?')) {
+                handleSaveChat();
+            }
+        }
+
+        setActiveChat(null);
+        setMessages([]);
+        setSelectedDocs([]);
+        setSavedTitle('');
+        setUnsavedChanges(false);
+        onHistoryClose();
+    };
+
     return (
         <Box h="calc(100vh - 80px)" display="flex" flexDirection="column">
+            {/* Header with chat title and controls */}
+            <Flex
+                p={4}
+                bg={colorMode === 'dark' ? 'gray.700' : 'gray.50'}
+                borderBottomWidth={1}
+                borderBottomColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                justify="space-between"
+                align="center"
+            >
+                <Flex align="center">
+                    <IconButton
+                        icon={<FiMenu />}
+                        aria-label="Chat History"
+                        mr={3}
+                        onClick={onHistoryOpen}
+                        variant="ghost"
+                    />
+                    <Heading size="md" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                        {activeChat ? savedTitle : 'New Chat'}
+                    </Heading>
+                    {unsavedChanges && (
+                        <Badge ml={2} colorScheme="yellow">Unsaved</Badge>
+                    )}
+                </Flex>
+
+                <Flex>
+                    <Tooltip label="New Chat">
+                        <IconButton
+                            icon={<FiPlus />}
+                            aria-label="New Chat"
+                            mr={2}
+                            onClick={handleNewChat}
+                            variant="ghost"
+                        />
+                    </Tooltip>
+                    <Tooltip label="Save Chat">
+                        <IconButton
+                            icon={<FiSave />}
+                            aria-label="Save Chat"
+                            mr={2}
+                            onClick={handleSaveChat}
+                            variant="ghost"
+                            isDisabled={!unsavedChanges && activeChat}
+                        />
+                    </Tooltip>
+                </Flex>
+            </Flex>
+
             {/* Document selection */}
             <Box
                 p={4}
@@ -274,6 +549,24 @@ function ChatInterface() {
                 </Flex>
             </Box>
 
+            {/* Chat history drawer */}
+            <Drawer
+                isOpen={isHistoryOpen}
+                placement="left"
+                onClose={onHistoryClose}
+            >
+                <DrawerOverlay />
+                <DrawerContent bg={colorMode === 'dark' ? 'gray.800' : 'white'}>
+                    <DrawerCloseButton />
+                    <DrawerHeader borderBottomWidth="1px">
+                        Chat History
+                    </DrawerHeader>
+                    <DrawerBody p={4}>
+                        <ChatHistory onSelectChat={handleSelectChat} />
+                    </DrawerBody>
+                </DrawerContent>
+            </Drawer>
+
             {/* Chat messages */}
             <VStack
                 flex="1"
@@ -283,7 +576,11 @@ function ChatInterface() {
                 align="stretch"
                 bg={colorMode === 'dark' ? 'gray.800' : 'white'}
             >
-                {messages.length === 0 ? (
+                {isLoadingChat ? (
+                    <Flex justify="center" align="center" h="100%">
+                        <Spinner size="xl" />
+                    </Flex>
+                ) : messages.length === 0 ? (
                     <Flex
                         direction="column"
                         justify="center"
@@ -426,6 +723,35 @@ function ChatInterface() {
                     </Flex>
                 </form>
             </Box>
+
+            {/* Max chats alert dialog */}
+            <AlertDialog
+                isOpen={isNewChatAlertOpen}
+                leastDestructiveRef={cancelRef}
+                onClose={onNewChatAlertClose}
+            >
+                <AlertDialogOverlay>
+                    <AlertDialogContent bg={colorMode === 'dark' ? 'gray.800' : 'white'}>
+                        <AlertDialogHeader fontSize="lg" fontWeight="bold" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                            Chat Limit Reached
+                        </AlertDialogHeader>
+
+                        <AlertDialogBody color={colorMode === 'dark' ? 'gray.200' : 'gray.700'}>
+                            You have reached the maximum limit of 5 chats. Creating a new chat will delete your oldest chat.
+                            Do you want to continue?
+                        </AlertDialogBody>
+
+                        <AlertDialogFooter>
+                            <Button ref={cancelRef} onClick={onNewChatAlertClose}>
+                                Cancel
+                            </Button>
+                            <Button colorScheme="red" onClick={handleProceedWithNewChat} ml={3}>
+                                Delete Oldest & Continue
+                            </Button>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialogOverlay>
+            </AlertDialog>
         </Box>
     );
 }

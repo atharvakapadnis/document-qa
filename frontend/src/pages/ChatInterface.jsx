@@ -7,7 +7,7 @@ import {
     useColorMode, Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
     DrawerBody, DrawerCloseButton, useDisclosure, Tooltip, AlertDialog,
     AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent,
-    AlertDialogOverlay
+    AlertDialogOverlay, Badge
 } from '@chakra-ui/react';
 import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiX, FiList } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
@@ -225,6 +225,27 @@ function ChatInterface() {
             setUnsavedChanges(true);
         }
     }, [messages, activeChat]);
+
+    // Check if parameters are specified in the URL
+    useEffect(() => {
+        // Check for document ID in URL
+        const docId = searchParams.get('doc');
+        if (docId) {
+            setSelectedDocs([docId]);
+        }
+
+        // Check for chat ID in URL or path parameters
+        const chatId = searchParams.get('chat');
+        if (chatId) {
+            setActiveChat(chatId);
+        } else {
+            // Check if we're on a chat/:chatId path
+            const pathMatch = window.location.pathname.match(/\/chat\/([^\/]+)/);
+            if (pathMatch && pathMatch[1]) {
+                setActiveChat(pathMatch[1]);
+            }
+        }
+    }, [searchParams]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

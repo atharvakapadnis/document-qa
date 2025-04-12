@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Flex, VStack, Input, Button, Text, Heading, Spinner,
@@ -7,9 +7,9 @@ import {
     useColorMode, Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
     DrawerBody, DrawerCloseButton, useDisclosure, Tooltip, AlertDialog,
     AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent,
-    AlertDialogOverlay, Badge
+    AlertDialogOverlay, InputGroup, InputRightElement, Badge
 } from '@chakra-ui/react';
-import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiX, FiList } from 'react-icons/fi';
+import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiX, FiList, FiEdit } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
 import { sendQuery } from '../api/queries';
@@ -101,6 +101,7 @@ const markdownStyles = {
 function ChatInterface() {
     const [searchParams] = useSearchParams();
     const toast = useToast();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const messagesEndRef = useRef(null);
     const [query, setQuery] = useState('');
@@ -108,8 +109,9 @@ function ChatInterface() {
     const [isQuerying, setIsQuerying] = useState(false);
     const [selectedDocs, setSelectedDocs] = useState([]);
     const [activeChat, setActiveChat] = useState(null);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [chatTitle, setChatTitle] = useState('New Chat');
     const [unsavedChanges, setUnsavedChanges] = useState(false);
-    const [savedTitle, setSavedTitle] = useState('');
     const { colorMode } = useColorMode();
     const {
         isOpen: isHistoryOpen,
@@ -122,6 +124,34 @@ function ChatInterface() {
         onClose: onNewChatAlertClose
     } = useDisclosure();
     const cancelRef = React.useRef();
+
+    // Fetch documents from URL params or dashboard selection
+    useEffect(() => {
+        // Get selected documents from localStorage if available
+        const savedDocs = localStorage.getItem('selectedDocuments');
+        if (savedDocs) {
+            try {
+                const parsedDocs = JSON.parse(savedDocs);
+                if (Array.isArray(parsedDocs) && parsedDocs.length > 0) {
+                    setSelectedDocs(parsedDocs);
+                }
+            } catch (error) {
+                console.error("Error parsing saved documents:", error);
+            }
+        }
+
+        // Check URL params for document selection
+        const docId = searchParams.get('doc');
+        if (docId && !selectedDocs.includes(docId)) {
+            setSelectedDocs(prev => [...prev, docId]);
+        }
+
+        // Check if a chat ID is specified in the URL
+        const chatId = searchParams.get('chat');
+        if (chatId) {
+            setActiveChat(chatId);
+        }
+    }, [searchParams]);
 
     // Fetch user's documents
     const { data: documents, isLoading: isLoadingDocs } = useQuery(
@@ -146,10 +176,30 @@ function ChatInterface() {
         {
             enabled: !!activeChat,
             onSuccess: (data) => {
-                setMessages(data.messages || []);
-                setSavedTitle(data.title);
-                setSelectedDocs(data.document_ids || []);
+                // Update messages state with fetched messages
+                if (data.messages && Array.isArray(data.messages)) {
+                    setMessages(data.messages);
+                }
+
+                // Update chat title
+                setChatTitle(data.title || 'Unnamed Chat');
+
+                // Update selected documents
+                if (data.document_ids && Array.isArray(data.document_ids)) {
+                    setSelectedDocs(data.document_ids);
+                }
+
                 setUnsavedChanges(false);
+            },
+            onError: (error) => {
+                console.error("Error fetching chat:", error);
+                toast({
+                    title: 'Error loading chat',
+                    description: error.message || 'Failed to load chat data',
+                    status: 'error',
+                    duration: 5000,
+                    isClosable: true,
+                });
             }
         }
     );
@@ -157,14 +207,33 @@ function ChatInterface() {
     // Create chat mutation
     const createChatMutation = useMutation(createChat, {
         onSuccess: (data) => {
+            // Set the active chat to the newly created chat
             setActiveChat(data.chat_id);
-            setSavedTitle(data.title);
+
+            // Update the chat title
+            setChatTitle(data.title || 'Unnamed Chat');
+
+            // Update UI state
+            setUnsavedChanges(false);
+
+            // Invalidate relevant queries
             queryClient.invalidateQueries('chats');
             queryClient.invalidateQueries('chatCount');
+
             toast({
                 title: 'Chat created',
                 status: 'success',
                 duration: 3000,
+                isClosable: true,
+            });
+        },
+        onError: (error) => {
+            console.error("Error creating chat:", error);
+            toast({
+                title: 'Error creating chat',
+                description: error.message || 'Failed to create new chat',
+                status: 'error',
+                duration: 5000,
                 isClosable: true,
             });
         }
@@ -184,6 +253,16 @@ function ChatInterface() {
                     duration: 3000,
                     isClosable: true,
                 });
+            },
+            onError: (error) => {
+                console.error("Error updating chat:", error);
+                toast({
+                    title: 'Error updating chat',
+                    description: error.message || 'Failed to update chat',
+                    status: 'error',
+                    duration: 5000,
+                    isClosable: true,
+                });
             }
         }
     );
@@ -194,25 +273,19 @@ function ChatInterface() {
         {
             onSuccess: () => {
                 queryClient.invalidateQueries(['chat', activeChat]);
-                queryClient.invalidateQueries('chats');
-                setUnsavedChanges(false);
+            },
+            onError: (error) => {
+                console.error("Error adding message:", error);
+                toast({
+                    title: 'Error saving message',
+                    description: error.message || 'Failed to save message',
+                    status: 'error',
+                    duration: 5000,
+                    isClosable: true,
+                });
             }
         }
     );
-
-    // Check if a document ID is specified in the URL
-    useEffect(() => {
-        const docId = searchParams.get('doc');
-        if (docId) {
-            setSelectedDocs([docId]);
-        }
-
-        // Check if a chat ID is specified in the URL
-        const chatId = searchParams.get('chat');
-        if (chatId) {
-            setActiveChat(chatId);
-        }
-    }, [searchParams]);
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -226,27 +299,6 @@ function ChatInterface() {
         }
     }, [messages, activeChat]);
 
-    // Check if parameters are specified in the URL
-    useEffect(() => {
-        // Check for document ID in URL
-        const docId = searchParams.get('doc');
-        if (docId) {
-            setSelectedDocs([docId]);
-        }
-
-        // Check for chat ID in URL or path parameters
-        const chatId = searchParams.get('chat');
-        if (chatId) {
-            setActiveChat(chatId);
-        } else {
-            // Check if we're on a chat/:chatId path
-            const pathMatch = window.location.pathname.match(/\/chat\/([^\/]+)/);
-            if (pathMatch && pathMatch[1]) {
-                setActiveChat(pathMatch[1]);
-            }
-        }
-    }, [searchParams]);
-
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -255,14 +307,24 @@ function ChatInterface() {
     const handleDocumentSelect = (e) => {
         const value = e.target.value;
         if (value && !selectedDocs.includes(value)) {
-            setSelectedDocs([...selectedDocs, value]);
+            const updatedDocs = [...selectedDocs, value];
+            setSelectedDocs(updatedDocs);
+
+            // Save to localStorage for persistence between pages
+            localStorage.setItem('selectedDocuments', JSON.stringify(updatedDocs));
+
             setUnsavedChanges(true);
         }
     };
 
     // Remove a document from selection
     const handleRemoveDocument = (docId) => {
-        setSelectedDocs(selectedDocs.filter(id => id !== docId));
+        const updatedDocs = selectedDocs.filter(id => id !== docId);
+        setSelectedDocs(updatedDocs);
+
+        // Update localStorage
+        localStorage.setItem('selectedDocuments', JSON.stringify(updatedDocs));
+
         setUnsavedChanges(true);
     };
 
@@ -288,38 +350,78 @@ function ChatInterface() {
         setIsQuerying(true);
 
         try {
-            const response = await sendQuery({
-                query: userMessage.text,
-                document_ids: selectedDocs.length > 0 ? selectedDocs : undefined
-            });
+            // If we don't have an active chat, create one
+            if (!activeChat) {
+                // Use the first few words of the query as the chat title
+                const defaultTitle = query.split(' ').slice(0, 4).join(' ') + '...';
 
-            // Add system message with response
-            const systemMessage = {
-                id: (Date.now() + 1).toString(),
-                sender: 'system',
-                text: response.answer,
-                sources: response.sources,
-                confidence: response.confidence,
-                query_time_seconds: response.query_time_seconds,
-                timestamp: new Date().toISOString(),
-            };
+                const chatData = await createChatMutation.mutateAsync({
+                    title: defaultTitle,
+                    document_ids: selectedDocs,
+                    messages: [userMessage]  // Include the first message
+                });
 
-            const updatedMessages = [...newMessages, systemMessage];
-            setMessages(updatedMessages);
+                // Chat is now created, update activeChat
+                const newChatId = chatData.chat_id;
 
-            // Save to chat if we have an active chat
-            if (activeChat) {
-                addMessageMutation.mutate({
+                // System response will be added to this chat
+                const response = await sendQuery({
+                    query: userMessage.text,
+                    document_ids: selectedDocs.length > 0 ? selectedDocs : undefined
+                });
+
+                // Add system message with response
+                const systemMessage = {
+                    id: (Date.now() + 1).toString(),
+                    sender: 'system',
+                    text: response.answer,
+                    sources: response.sources,
+                    confidence: response.confidence,
+                    query_time_seconds: response.query_time_seconds,
+                    timestamp: new Date().toISOString(),
+                };
+
+                // Add system message to the new chat
+                await addMessageMutation.mutateAsync({
+                    chatId: newChatId,
+                    message: systemMessage
+                });
+
+                // Update local messages state
+                setMessages([...newMessages, systemMessage]);
+
+            } else {
+                // We have an active chat, add the user message to it
+                await addMessageMutation.mutateAsync({
                     chatId: activeChat,
                     message: userMessage
                 });
 
-                addMessageMutation.mutate({
+                // Get system response
+                const response = await sendQuery({
+                    query: userMessage.text,
+                    document_ids: selectedDocs.length > 0 ? selectedDocs : undefined
+                });
+
+                // Add system message with response
+                const systemMessage = {
+                    id: (Date.now() + 1).toString(),
+                    sender: 'system',
+                    text: response.answer,
+                    sources: response.sources,
+                    confidence: response.confidence,
+                    query_time_seconds: response.query_time_seconds,
+                    timestamp: new Date().toISOString(),
+                };
+
+                // Add system message to the active chat
+                await addMessageMutation.mutateAsync({
                     chatId: activeChat,
                     message: systemMessage
                 });
-            } else {
-                setUnsavedChanges(true);
+
+                // Update local messages state
+                setMessages([...newMessages, systemMessage]);
             }
 
         } catch (error) {
@@ -362,7 +464,7 @@ function ChatInterface() {
     };
 
     // Create a new chat
-    const handleCreateChat = async (title) => {
+    const handleCreateChat = async () => {
         const willExceedLimit = (chatCountData?.total || 0) >= 5;
 
         if (willExceedLimit) {
@@ -370,7 +472,7 @@ function ChatInterface() {
             return;
         }
 
-        await createNewChat(title);
+        await createNewChat();
     };
 
     // Create new chat helper
@@ -379,8 +481,11 @@ function ChatInterface() {
             await createChatMutation.mutateAsync({
                 title,
                 document_ids: selectedDocs,
-                messages: messages
+                messages: []
             });
+
+            // Clear messages for the new chat
+            setMessages([]);
         } catch (error) {
             toast({
                 title: 'Error',
@@ -402,14 +507,13 @@ function ChatInterface() {
     const handleSaveChat = async () => {
         if (!activeChat) {
             // Create new chat if none exists
-            handleCreateChat(savedTitle || "New Chat");
+            handleCreateChat();
             return;
         }
 
         try {
             await updateChatMutation.mutateAsync({
-                title: savedTitle,
-                messages: messages,
+                title: chatTitle,
                 document_ids: selectedDocs
             });
         } catch (error) {
@@ -447,10 +551,36 @@ function ChatInterface() {
 
         setActiveChat(null);
         setMessages([]);
-        setSelectedDocs([]);
-        setSavedTitle('');
+        setChatTitle('New Chat');
         setUnsavedChanges(false);
         onHistoryClose();
+    };
+
+    // Handle title editing
+    const handleTitleChange = (e) => {
+        setChatTitle(e.target.value);
+        setUnsavedChanges(true);
+    };
+
+    const startTitleEdit = () => {
+        setIsEditingTitle(true);
+    };
+
+    const finishTitleEdit = () => {
+        setIsEditingTitle(false);
+        handleSaveChat();
+    };
+
+    // Handle title edit on Enter key
+    const handleTitleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            finishTitleEdit();
+        }
+    };
+
+    // Return to dashboard
+    const handleBackToDashboard = () => {
+        navigate('/');
     };
 
     return (
@@ -472,15 +602,65 @@ function ChatInterface() {
                         onClick={onHistoryOpen}
                         variant="ghost"
                     />
-                    <Heading size="md" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
-                        {activeChat ? savedTitle : 'New Chat'}
-                    </Heading>
+
+                    {isEditingTitle ? (
+                        <InputGroup size="md" width="auto" maxW="300px">
+                            <Input
+                                value={chatTitle}
+                                onChange={handleTitleChange}
+                                onBlur={finishTitleEdit}
+                                onKeyDown={handleTitleKeyDown}
+                                autoFocus
+                                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.300'}
+                                bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+                            />
+                            <InputRightElement>
+                                <IconButton
+                                    size="sm"
+                                    icon={<FiSave />}
+                                    onClick={finishTitleEdit}
+                                    variant="ghost"
+                                />
+                            </InputRightElement>
+                        </InputGroup>
+                    ) : (
+                        <Heading
+                            size="md"
+                            color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                            onClick={startTitleEdit}
+                            cursor="pointer"
+                            display="flex"
+                            alignItems="center"
+                        >
+                            {activeChat ? chatTitle : 'New Chat'}
+                            {activeChat && (
+                                <IconButton
+                                    icon={<FiEdit />}
+                                    size="sm"
+                                    aria-label="Edit title"
+                                    variant="ghost"
+                                    ml={2}
+                                    onClick={startTitleEdit}
+                                />
+                            )}
+                        </Heading>
+                    )}
+
                     {unsavedChanges && (
                         <Badge ml={2} colorScheme="yellow">Unsaved</Badge>
                     )}
                 </Flex>
 
                 <Flex>
+                    <Tooltip label="Back to Dashboard">
+                        <Button
+                            variant="ghost"
+                            mr={2}
+                            onClick={handleBackToDashboard}
+                        >
+                            Dashboard
+                        </Button>
+                    </Tooltip>
                     <Tooltip label="New Chat">
                         <IconButton
                             icon={<FiPlus />}
@@ -515,7 +695,7 @@ function ChatInterface() {
                     mb={2}
                     color={colorMode === 'dark' ? 'white' : 'gray.800'}
                 >
-                    Active Documents
+                    Selected Documents
                 </Heading>
                 <Flex alignItems="center" mb={2}>
                     <Select

@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Box, Heading, Text, Flex, Tag, Badge, IconButton,
-    Menu, MenuButton, MenuList, MenuItem, Icon, useColorMode,
-    Checkbox
+    Box, Text, Flex, Badge, IconButton,
+    Menu, MenuButton, MenuList, MenuItem, Icon, useColorMode
 } from '@chakra-ui/react';
 import { FiMoreVertical, FiEye, FiMessageSquare, FiTrash2, FiFileText } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns';
@@ -83,25 +82,12 @@ function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
             cursor="pointer"
             position="relative"
         >
+            {/* Document Header */}
             <Flex
                 p={4}
-                bg={isSelected
-                    ? (colorMode === 'dark' ? 'blue.800' : 'blue.100')
-                    : (colorMode === 'dark' ? 'gray.700' : 'gray.50')}
                 align="center"
-                borderBottomWidth={1}
-                borderBottomColor={isSelected
-                    ? 'blue.500'
-                    : (colorMode === 'dark' ? 'gray.600' : 'gray.200')}
+                position="relative"
             >
-                <Checkbox
-                    isChecked={isSelected}
-                    colorScheme="blue"
-                    mr={3}
-                    size="lg"
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={onToggleSelect}
-                />
                 <Icon
                     as={FiFileText}
                     boxSize={6}
@@ -109,8 +95,8 @@ function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
                     mr={3}
                 />
                 <Box flex="1">
-                    <Heading
-                        size="sm"
+                    <Text
+                        fontWeight="medium"
                         noOfLines={1}
                         title={document.filename}
                         color={isSelected
@@ -118,7 +104,7 @@ function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
                             : (colorMode === 'dark' ? 'white' : 'gray.800')}
                     >
                         {document.filename}
-                    </Heading>
+                    </Text>
                     <Text
                         fontSize="xs"
                         color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
@@ -126,7 +112,7 @@ function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
                         {formatFileSize(document.size_bytes)} • {formatDate(document.upload_date)}
                     </Text>
                 </Box>
-                <Menu>
+                <Menu placement="bottom-end" autoSelect={false} strategy="fixed">
                     <MenuButton
                         as={IconButton}
                         icon={<FiMoreVertical />}
@@ -140,6 +126,10 @@ function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
                         bg={colorMode === 'dark' ? 'gray.700' : 'white'}
                         borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
                         onClick={(e) => e.stopPropagation()}
+                        zIndex={100}
+                        minW="150px"
+                        boxShadow="lg"
+                        position="relative"
                     >
                         <MenuItem
                             as={Link}
@@ -174,45 +164,23 @@ function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
                 </Menu>
             </Flex>
 
+            {/* Document Status */}
             <Box
                 p={4}
-                bg={isSelected
-                    ? (colorMode === 'dark' ? 'blue.900' : 'blue.50')
-                    : (colorMode === 'dark' ? 'gray.700' : 'white')}
+                pt={0}
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
             >
-                <Flex justify="space-between" mb={3}>
-                    <Badge colorScheme={getStatusColor(document.status || 'processing')}>
-                        {document.status || 'Processing'}
-                    </Badge>
-                    {document.num_pages && (
-                        <Text
-                            fontSize="xs"
-                            color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
-                        >
-                            {document.num_pages} {document.num_pages === 1 ? 'page' : 'pages'}
-                        </Text>
-                    )}
-                </Flex>
-
-                {document.tags && document.tags.length > 0 && (
-                    <Flex mt={2} flexWrap="wrap" gap={1}>
-                        {document.tags.map((tag, index) => (
-                            <Tag
-                                key={index}
-                                size="sm"
-                                colorScheme={isSelected ? "blue" : "gray"}
-                                variant="subtle"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {tag}
-                            </Tag>
-                        ))}
-                    </Flex>
-                )}
-
-                {document.error && (
-                    <Text color="red.500" fontSize="sm" mt={2}>
-                        Error: {document.error}
+                <Badge colorScheme={getStatusColor(document.status || 'processing')}>
+                    {document.status || 'Processing'}
+                </Badge>
+                {document.num_pages && (
+                    <Text
+                        fontSize="xs"
+                        color={colorMode === 'dark' ? 'gray.300' : 'gray.500'}
+                    >
+                        {document.num_pages} {document.num_pages === 1 ? 'page' : 'pages'}
                     </Text>
                 )}
             </Box>

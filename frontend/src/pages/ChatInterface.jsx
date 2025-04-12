@@ -3,13 +3,13 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Flex, VStack, Input, Button, Text, Heading, Spinner,
-    useToast, Tag, Avatar, IconButton, Divider, Select, Card, CardBody,
-    useColorMode, Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
+    useToast, Tag, Avatar, IconButton, Badge, useColorMode,
+    Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
     DrawerBody, DrawerCloseButton, useDisclosure, Tooltip, AlertDialog,
     AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent,
-    AlertDialogOverlay, InputGroup, InputRightElement, Badge
+    AlertDialogOverlay, InputGroup, InputRightElement, Icon, HStack
 } from '@chakra-ui/react';
-import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiX, FiList, FiEdit } from 'react-icons/fi';
+import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiEdit, FiChevronRight } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
 import { sendQuery } from '../api/queries';
@@ -303,29 +303,10 @@ function ChatInterface() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Handle document selection
-    const handleDocumentSelect = (e) => {
-        const value = e.target.value;
-        if (value && !selectedDocs.includes(value)) {
-            const updatedDocs = [...selectedDocs, value];
-            setSelectedDocs(updatedDocs);
-
-            // Save to localStorage for persistence between pages
-            localStorage.setItem('selectedDocuments', JSON.stringify(updatedDocs));
-
-            setUnsavedChanges(true);
-        }
-    };
-
-    // Remove a document from selection
-    const handleRemoveDocument = (docId) => {
-        const updatedDocs = selectedDocs.filter(id => id !== docId);
-        setSelectedDocs(updatedDocs);
-
-        // Update localStorage
-        localStorage.setItem('selectedDocuments', JSON.stringify(updatedDocs));
-
-        setUnsavedChanges(true);
+    // Get document name by ID
+    const getDocumentNameById = (docId) => {
+        const doc = documents?.find(d => d.doc_id === docId);
+        return doc ? doc.filename : docId;
     };
 
     // Send a query to the backend
@@ -455,12 +436,6 @@ function ChatInterface() {
         } finally {
             setIsQuerying(false);
         }
-    };
-
-    // Get document name by ID
-    const getDocumentNameById = (docId) => {
-        const doc = documents?.find(d => d.doc_id === docId);
-        return doc ? doc.filename : docId;
     };
 
     // Create a new chat
@@ -596,7 +571,7 @@ function ChatInterface() {
             >
                 <Flex align="center">
                     <IconButton
-                        icon={<FiMenu />}
+                        icon={<Icon as={FiMenu} />}
                         aria-label="Chat History"
                         mr={3}
                         onClick={onHistoryOpen}
@@ -617,7 +592,7 @@ function ChatInterface() {
                             <InputRightElement>
                                 <IconButton
                                     size="sm"
-                                    icon={<FiSave />}
+                                    icon={<Icon as={FiSave} />}
                                     onClick={finishTitleEdit}
                                     variant="ghost"
                                 />
@@ -635,7 +610,7 @@ function ChatInterface() {
                             {activeChat ? chatTitle : 'New Chat'}
                             {activeChat && (
                                 <IconButton
-                                    icon={<FiEdit />}
+                                    icon={<Icon as={FiEdit} />}
                                     size="sm"
                                     aria-label="Edit title"
                                     variant="ghost"
@@ -663,7 +638,7 @@ function ChatInterface() {
                     </Tooltip>
                     <Tooltip label="New Chat">
                         <IconButton
-                            icon={<FiPlus />}
+                            icon={<Icon as={FiPlus} />}
                             aria-label="New Chat"
                             mr={2}
                             onClick={handleNewChat}
@@ -672,7 +647,7 @@ function ChatInterface() {
                     </Tooltip>
                     <Tooltip label="Save Chat">
                         <IconButton
-                            icon={<FiSave />}
+                            icon={<Icon as={FiSave} />}
                             aria-label="Save Chat"
                             mr={2}
                             onClick={handleSaveChat}
@@ -683,43 +658,31 @@ function ChatInterface() {
                 </Flex>
             </Flex>
 
-            {/* Document selection */}
+            {/* Document selection summary */}
             <Box
                 p={4}
                 bg={colorMode === 'dark' ? 'gray.700' : 'gray.50'}
                 borderBottomWidth={1}
                 borderBottomColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
             >
-                <Heading
-                    size="sm"
-                    mb={2}
-                    color={colorMode === 'dark' ? 'white' : 'gray.800'}
-                >
-                    Selected Documents
-                </Heading>
-                <Flex alignItems="center" mb={2}>
-                    <Select
-                        placeholder="Select documents to query"
-                        onChange={handleDocumentSelect}
-                        disabled={isLoadingDocs}
-                        flex="1"
-                        mr={2}
-                        bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+                <Flex justify="space-between" align="center">
+                    <Heading
+                        size="sm"
                         color={colorMode === 'dark' ? 'white' : 'gray.800'}
-                        borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
-                        _hover={{
-                            borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500'
-                        }}
                     >
-                        {documents?.map(doc => (
-                            <option key={doc.doc_id} value={doc.doc_id}>
-                                {doc.filename}
-                            </option>
-                        ))}
-                    </Select>
+                        Documents Being Queried
+                    </Heading>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleBackToDashboard}
+                        colorScheme="blue"
+                    >
+                        Change Selection
+                    </Button>
                 </Flex>
 
-                <Flex wrap="wrap" gap={2}>
+                <Flex wrap="wrap" gap={2} mt={3}>
                     {selectedDocs.length === 0 ? (
                         <Text
                             fontSize="sm"
@@ -736,14 +699,6 @@ function ChatInterface() {
                                 borderRadius="full"
                             >
                                 {getDocumentNameById(docId)}
-                                <Button
-                                    size="xs"
-                                    ml={1}
-                                    onClick={() => handleRemoveDocument(docId)}
-                                    variant="ghost"
-                                >
-                                    ×
-                                </Button>
                             </Tag>
                         ))
                     )}
@@ -916,7 +871,7 @@ function ChatInterface() {
                             colorScheme="blue"
                             type="submit"
                             isLoading={isQuerying}
-                            leftIcon={<FiSend />}
+                            leftIcon={<Icon as={FiSend} />}
                             disabled={!query.trim()}
                         >
                             Send

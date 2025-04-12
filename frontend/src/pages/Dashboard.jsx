@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-    Box, Heading, SimpleGrid, Text, Button, Icon, Input, Tag, HStack,
+    Box, Heading, SimpleGrid, Text, Button, Input, Tag, HStack,
     VStack, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader,
     ModalCloseButton, ModalBody, ModalFooter, useToast, Spinner, Flex,
-    useColorMode, Divider, Checkbox, Card, CardHeader, CardBody
+    useColorMode, Icon
 } from '@chakra-ui/react';
-import { FiUpload, FiFile, FiMessageSquare, FiChevronRight, FiSearch, FiCheck } from 'react-icons/fi';
+import { FiUpload, FiFile, FiMessageSquare, FiChevronRight, FiSearch, FiX } from 'react-icons/fi';
 
 import { fetchDocuments, uploadDocument, deleteDocument } from '../api/documents';
 import DocumentCard from '../components/DocumentCard';
@@ -102,6 +102,9 @@ function Dashboard() {
         if (window.confirm('Are you sure you want to delete this document?')) {
             // Also remove from selected documents if present
             setSelectedDocuments(prev => prev.filter(id => id !== docId));
+            localStorage.setItem('selectedDocuments', JSON.stringify(
+                selectedDocuments.filter(id => id !== docId)
+            ));
             deleteMutation.mutate(docId);
         }
     };
@@ -138,6 +141,12 @@ function Dashboard() {
         navigate('/chat');
     };
 
+    // Clear all selected documents
+    const clearAllSelected = () => {
+        setSelectedDocuments([]);
+        localStorage.setItem('selectedDocuments', JSON.stringify([]));
+    };
+
     // Filter documents based on search query
     const filteredDocuments = documents?.filter(doc =>
         doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
@@ -145,31 +154,12 @@ function Dashboard() {
 
     return (
         <Box p={5}>
-            <Flex justify="space-between" align="center" mb={6} wrap="wrap">
-                <Heading size="lg" color={colorMode === 'dark' ? 'white' : 'gray.800'}>Your Documents</Heading>
-                <Flex align="center">
-                    <Button
-                        colorScheme="blue"
-                        leftIcon={<Icon as={FiUpload} />}
-                        onClick={onOpen}
-                        mr={3}
-                    >
-                        Upload Document
-                    </Button>
-                    <Button
-                        colorScheme="green"
-                        leftIcon={<Icon as={FiMessageSquare} />}
-                        onClick={handleGoToChat}
-                        isDisabled={selectedDocuments.length === 0}
-                    >
-                        Chat with Selected
-                    </Button>
-                </Flex>
-            </Flex>
+            <Heading size="lg" mb={6} color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                Your Documents
+            </Heading>
 
-            {/* Search and document selection summary */}
-            <Flex mb={6} direction={{ base: "column", md: "row" }} align={{ base: "stretch", md: "center" }} gap={4}>
-                <Box flex="1" position="relative">
+            <Flex justify="space-between" align="center" mb={6} wrap="wrap">
+                <Box position="relative" w={{ base: '100%', md: '60%' }} mb={{ base: 4, md: 0 }}>
                     <Input
                         placeholder="Search documents..."
                         value={searchQuery}
@@ -197,79 +187,98 @@ function Dashboard() {
                         color={colorMode === 'dark' ? 'gray.400' : 'gray.500'}
                     />
                 </Box>
-                <HStack spacing={2} wrap="wrap">
-                    <Text fontWeight="medium" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
-                        Selected: {selectedDocuments.length}
-                    </Text>
+
+                <Flex gap={2}>
+                    <Button
+                        colorScheme="blue"
+                        leftIcon={<Icon as={FiUpload} />}
+                        onClick={onOpen}
+                    >
+                        Upload Document
+                    </Button>
                     {selectedDocuments.length > 0 && (
+                        <Button
+                            colorScheme="green"
+                            leftIcon={<Icon as={FiMessageSquare} />}
+                            onClick={handleGoToChat}
+                        >
+                            Chat with Selected
+                        </Button>
+                    )}
+                </Flex>
+            </Flex>
+
+            {/* Selected documents summary */}
+            {selectedDocuments.length > 0 && (
+                <Flex
+                    mb={6}
+                    p={3}
+                    bg={colorMode === 'dark' ? 'gray.700' : 'gray.50'}
+                    borderRadius="md"
+                    borderWidth={1}
+                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                    align="center"
+                    justify="space-between"
+                    wrap="wrap"
+                >
+                    <HStack spacing={2} mb={{ base: 2, md: 0 }} flex="1">
+                        <Text fontWeight="medium" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                            Selected: {selectedDocuments.length}
+                        </Text>
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedDocuments([])}
+                            onClick={clearAllSelected}
                             colorScheme="red"
                         >
                             Clear All
                         </Button>
-                    )}
-                </HStack>
-            </Flex>
+                        <Box flex="1">
+                            <Flex wrap="wrap" gap={2}>
+                                {selectedDocuments.slice(0, 3).map(docId => {
+                                    const doc = documents?.find(d => d.doc_id === docId);
+                                    if (!doc) return null;
 
-            {/* Selected Documents Card */}
-            {selectedDocuments.length > 0 && (
-                <Card
-                    mb={6}
-                    bg={colorMode === 'dark' ? 'gray.700' : 'white'}
-                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
-                >
-                    <CardHeader pb={2}>
-                        <Heading size="md" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
-                            Selected Documents
-                        </Heading>
-                    </CardHeader>
-                    <CardBody pt={0}>
-                        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3}>
-                            {selectedDocuments.map(docId => {
-                                const doc = documents?.find(d => d.doc_id === docId);
-                                if (!doc) return null;
-
-                                return (
-                                    <Tag
-                                        key={docId}
-                                        size="lg"
-                                        borderRadius="full"
-                                        variant="solid"
-                                        colorScheme="blue"
-                                        padding={2}
-                                        paddingLeft={3}
-                                    >
-                                        <HStack spacing={2} flex="1">
-                                            <Icon as={FiFile} />
-                                            <Text noOfLines={1}>{doc.filename}</Text>
-                                        </HStack>
-                                        <Button
-                                            size="xs"
-                                            ml={1}
-                                            onClick={() => handleToggleDocumentSelection(docId)}
-                                            variant="ghost"
-                                            color="white"
+                                    return (
+                                        <Tag
+                                            key={docId}
+                                            size="md"
+                                            borderRadius="full"
+                                            variant="solid"
+                                            colorScheme="blue"
                                         >
-                                            ×
-                                        </Button>
+                                            <HStack spacing={1}>
+                                                <Text noOfLines={1} maxW="150px">{doc.filename}</Text>
+                                                <Icon
+                                                    as={FiX}
+                                                    cursor="pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleToggleDocumentSelection(docId);
+                                                    }}
+                                                />
+                                            </HStack>
+                                        </Tag>
+                                    );
+                                })}
+                                {selectedDocuments.length > 3 && (
+                                    <Tag colorScheme="blue" variant="solid">
+                                        +{selectedDocuments.length - 3} more
                                     </Tag>
-                                );
-                            })}
-                        </SimpleGrid>
-                        <Flex justify="flex-end" mt={4}>
-                            <Button
-                                colorScheme="green"
-                                rightIcon={<FiChevronRight />}
-                                onClick={handleGoToChat}
-                            >
-                                Chat with Selected
-                            </Button>
-                        </Flex>
-                    </CardBody>
-                </Card>
+                                )}
+                            </Flex>
+                        </Box>
+                    </HStack>
+                    <Button
+                        colorScheme="green"
+                        rightIcon={<Icon as={FiChevronRight} />}
+                        onClick={handleGoToChat}
+                        size={{ base: 'sm', md: 'md' }}
+                        mt={{ base: 2, md: 0 }}
+                    >
+                        Chat with Selected
+                    </Button>
+                </Flex>
             )}
 
             {isLoading ? (
@@ -302,26 +311,15 @@ function Dashboard() {
                     <Button colorScheme="blue" onClick={onOpen}>Upload Document</Button>
                 </Box>
             ) : (
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                <SimpleGrid columns={{ base: 1, sm: 1, md: 2, lg: 3 }} spacing={6}>
                     {filteredDocuments.map((doc) => (
-                        <Box key={doc.doc_id} position="relative">
-                            <Checkbox
-                                position="absolute"
-                                top={2}
-                                right={2}
-                                zIndex={1}
-                                colorScheme="blue"
-                                size="lg"
-                                isChecked={selectedDocuments.includes(doc.doc_id)}
-                                onChange={() => handleToggleDocumentSelection(doc.doc_id)}
-                            />
-                            <DocumentCard
-                                document={doc}
-                                onDelete={() => handleDelete(doc.doc_id)}
-                                isSelected={selectedDocuments.includes(doc.doc_id)}
-                                onToggleSelect={() => handleToggleDocumentSelection(doc.doc_id)}
-                            />
-                        </Box>
+                        <DocumentCard
+                            key={doc.doc_id}
+                            document={doc}
+                            onDelete={() => handleDelete(doc.doc_id)}
+                            isSelected={selectedDocuments.includes(doc.doc_id)}
+                            onToggleSelect={() => handleToggleDocumentSelection(doc.doc_id)}
+                        />
                     ))}
                 </SimpleGrid>
             )}
@@ -357,7 +355,7 @@ function Dashboard() {
                                     placeholder="Enter tag"
                                     value={currentTag}
                                     onChange={(e) => setCurrentTag(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
                                     bg={colorMode === 'dark' ? 'gray.700' : 'white'}
                                     color={colorMode === 'dark' ? 'white' : 'gray.800'}
                                     borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}

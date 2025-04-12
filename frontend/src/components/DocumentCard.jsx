@@ -2,28 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
     Box, Heading, Text, Flex, Tag, Badge, IconButton,
-    Menu, MenuButton, MenuList, MenuItem, Icon, useColorMode
+    Menu, MenuButton, MenuList, MenuItem, Icon, useColorMode,
+    Checkbox
 } from '@chakra-ui/react';
 import { FiMoreVertical, FiEye, FiMessageSquare, FiTrash2, FiFileText } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
-function DocumentCard({ document, onDelete }) {
+function DocumentCard({ document, onDelete, isSelected, onToggleSelect }) {
     // Get the current color mode
     const { colorMode } = useColorMode();
-
-    // Helper to get file icon based on type
-    const getFileIcon = (fileType) => {
-        switch (fileType.toLowerCase()) {
-            case 'pdf':
-                return 'FiFileText';
-            case 'docx':
-                return 'FiFileText';
-            case 'csv':
-                return 'FiFileText';
-            default:
-                return 'FiFile';
-        }
-    };
 
     // Get status color
     const getStatusColor = (status) => {
@@ -86,19 +73,39 @@ function DocumentCard({ document, onDelete }) {
             boxShadow="sm"
             transition="all 0.2s"
             _hover={{ boxShadow: 'md' }}
-            borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
+            borderColor={isSelected
+                ? 'blue.500'
+                : (colorMode === 'dark' ? 'gray.700' : 'gray.200')}
+            bg={isSelected
+                ? (colorMode === 'dark' ? 'blue.900' : 'blue.50')
+                : (colorMode === 'dark' ? 'gray.700' : 'white')}
+            onClick={onToggleSelect}
+            cursor="pointer"
+            position="relative"
         >
             <Flex
                 p={4}
-                bg={colorMode === 'dark' ? 'gray.700' : 'gray.50'}
+                bg={isSelected
+                    ? (colorMode === 'dark' ? 'blue.800' : 'blue.100')
+                    : (colorMode === 'dark' ? 'gray.700' : 'gray.50')}
                 align="center"
                 borderBottomWidth={1}
-                borderBottomColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                borderBottomColor={isSelected
+                    ? 'blue.500'
+                    : (colorMode === 'dark' ? 'gray.600' : 'gray.200')}
             >
+                <Checkbox
+                    isChecked={isSelected}
+                    colorScheme="blue"
+                    mr={3}
+                    size="lg"
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={onToggleSelect}
+                />
                 <Icon
                     as={FiFileText}
                     boxSize={6}
-                    color="blue.500"
+                    color={isSelected ? "blue.500" : "blue.400"}
                     mr={3}
                 />
                 <Box flex="1">
@@ -106,7 +113,9 @@ function DocumentCard({ document, onDelete }) {
                         size="sm"
                         noOfLines={1}
                         title={document.filename}
-                        color={colorMode === 'dark' ? 'white' : 'gray.800'}
+                        color={isSelected
+                            ? (colorMode === 'dark' ? 'blue.200' : 'blue.700')
+                            : (colorMode === 'dark' ? 'white' : 'gray.800')}
                     >
                         {document.filename}
                     </Heading>
@@ -125,10 +134,12 @@ function DocumentCard({ document, onDelete }) {
                         size="sm"
                         aria-label="Options"
                         color={colorMode === 'dark' ? 'gray.200' : 'gray.800'}
+                        onClick={(e) => e.stopPropagation()}
                     />
                     <MenuList
                         bg={colorMode === 'dark' ? 'gray.700' : 'white'}
                         borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <MenuItem
                             as={Link}
@@ -151,7 +162,10 @@ function DocumentCard({ document, onDelete }) {
                         <MenuItem
                             icon={<Icon as={FiTrash2} />}
                             color="red.500"
-                            onClick={() => onDelete(document.doc_id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(document.doc_id);
+                            }}
                             _hover={{ bg: colorMode === 'dark' ? 'gray.600' : 'gray.100' }}
                         >
                             Delete
@@ -162,7 +176,9 @@ function DocumentCard({ document, onDelete }) {
 
             <Box
                 p={4}
-                bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                bg={isSelected
+                    ? (colorMode === 'dark' ? 'blue.900' : 'blue.50')
+                    : (colorMode === 'dark' ? 'gray.700' : 'white')}
             >
                 <Flex justify="space-between" mb={3}>
                     <Badge colorScheme={getStatusColor(document.status || 'processing')}>
@@ -181,7 +197,13 @@ function DocumentCard({ document, onDelete }) {
                 {document.tags && document.tags.length > 0 && (
                     <Flex mt={2} flexWrap="wrap" gap={1}>
                         {document.tags.map((tag, index) => (
-                            <Tag key={index} size="sm" colorScheme="blue" variant="subtle">
+                            <Tag
+                                key={index}
+                                size="sm"
+                                colorScheme={isSelected ? "blue" : "gray"}
+                                variant="subtle"
+                                onClick={(e) => e.stopPropagation()}
+                            >
                                 {tag}
                             </Tag>
                         ))}

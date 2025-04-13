@@ -3,13 +3,10 @@ import json
 from typing import Dict, List, Any, Optional
 import uuid
 from datetime import datetime
-import logging
+from pydantic import BaseModel
 
 from app.core.config import settings
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 class JSONDatabase:
     """Simple JSON-based database for users and metadata"""
@@ -83,14 +80,9 @@ class JSONDatabase:
         documents = []
         for filename in os.listdir(user_docs_dir):
             if filename.endswith('.json'):
-                try:
-                    with open(f"{user_docs_dir}/{filename}", 'r') as f:
-                        doc = json.load(f)
-                        documents.append(doc)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Error reading document file {filename}: {str(e)}")
-                    # Skip corrupted files
-                    continue
+                with open(f"{user_docs_dir}/{filename}", 'r') as f:
+                    doc = json.load(f)
+                    documents.append(doc)
         
         # Sort by upload date (newest first)
         documents.sort(key=lambda x: x.get("upload_date", ""), reverse=True)
@@ -103,12 +95,8 @@ class JSONDatabase:
         if not os.path.exists(doc_path):
             return None
         
-        try:
-            with open(doc_path, 'r') as f:
-                return json.load(f)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error reading document {doc_id}: {str(e)}")
-            return None
+        with open(doc_path, 'r') as f:
+            return json.load(f)
     
     def save_document(self, username: str, doc_data: Dict[str, Any]) -> Dict[str, Any]:
         """Save a document"""
@@ -117,14 +105,10 @@ class JSONDatabase:
         
         doc_path = f"{user_docs_dir}/{doc_data['doc_id']}.json"
         
-        try:
-            with open(doc_path, 'w') as f:
-                json.dump(doc_data, f)
-            
-            return doc_data
-        except Exception as e:
-            logger.error(f"Error saving document {doc_data.get('doc_id')}: {str(e)}")
-            raise
+        with open(doc_path, 'w') as f:
+            json.dump(doc_data, f)
+        
+        return doc_data
     
     def delete_document(self, username: str, doc_id: str) -> bool:
         """Delete a document"""
@@ -133,12 +117,8 @@ class JSONDatabase:
         if not os.path.exists(doc_path):
             return False
         
-        try:
-            os.remove(doc_path)
-            return True
-        except Exception as e:
-            logger.error(f"Error deleting document {doc_id}: {str(e)}")
-            return False
+        os.remove(doc_path)
+        return True
     
     def update_document(self, username: str, doc_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Update a document"""
@@ -167,51 +147,13 @@ class JSONDatabase:
         chats = []
         for filename in os.listdir(user_chats_dir):
             if filename.endswith('.json'):
-                chat_path = f"{user_chats_dir}/{filename}"
-                try:
-                    with open(chat_path, 'r') as f:
-                        chat = json.load(f)
-                        chats.append(chat)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Error reading chat file {filename}: {str(e)}")
-                    # Handle corrupted chat file
-                    try:
-                        # Attempt to repair the file by replacing it with a minimal valid structure
-                        chat_id = filename.replace('.json', '')
-                        self._repair_chat_file(username, chat_id)
-                        
-                        # Try to read the repaired file
-                        with open(chat_path, 'r') as f:
-                            chat = json.load(f)
-                            chats.append(chat)
-                    except Exception as repair_error:
-                        logger.error(f"Could not repair chat file {filename}: {str(repair_error)}")
-                        # Skip this file if repair fails
-                        continue
+                with open(f"{user_chats_dir}/{filename}", 'r') as f:
+                    chat = json.load(f)
+                    chats.append(chat)
         
         # Sort by created_at date (newest first)
         chats.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return chats
-    
-    def _repair_chat_file(self, username: str, chat_id: str):
-        """Repair a corrupted chat file with minimal valid data"""
-        chat_path = f"{self.chats_dir}/{username}/{chat_id}.json"
-        
-        # Create minimal valid chat data
-        minimal_chat = {
-            "chat_id": chat_id,
-            "title": "Recovered Chat",
-            "user_id": "unknown",
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
-            "messages": []
-        }
-        
-        # Write the repaired file
-        with open(chat_path, 'w') as f:
-            json.dump(minimal_chat, f)
-        
-        logger.info(f"Repaired corrupted chat file: {chat_path}")
     
     def get_chat(self, username: str, chat_id: str) -> Optional[Dict[str, Any]]:
         """Get a chat by ID"""
@@ -220,21 +162,8 @@ class JSONDatabase:
         if not os.path.exists(chat_path):
             return None
         
-        try:
-            with open(chat_path, 'r') as f:
-                return json.load(f)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error reading chat {chat_id}: {str(e)}")
-            
-            # Try to repair the file
-            try:
-                self._repair_chat_file(username, chat_id)
-                
-                # Try to read the repaired file
-                with open(chat_path, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                return None
+        with open(chat_path, 'r') as f:
+            return json.load(f)
     
     def create_chat(self, username: str, chat_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new chat"""
@@ -263,14 +192,10 @@ class JSONDatabase:
         
         # Save chat
         chat_path = f"{user_chats_dir}/{chat_data['chat_id']}.json"
-        try:
-            with open(chat_path, 'w') as f:
-                json.dump(chat_data, f)
-            
-            return chat_data
-        except Exception as e:
-            logger.error(f"Error creating chat: {str(e)}")
-            raise
+        with open(chat_path, 'w') as f:
+            json.dump(chat_data, f)
+        
+        return chat_data
     
     def update_chat(self, username: str, chat_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Update a chat"""
@@ -289,14 +214,10 @@ class JSONDatabase:
         # Save updated chat
         user_chats_dir = f"{self.chats_dir}/{username}"
         chat_path = f"{user_chats_dir}/{chat_id}.json"
-        try:
-            with open(chat_path, 'w') as f:
-                json.dump(chat, f)
-            
-            return chat
-        except Exception as e:
-            logger.error(f"Error updating chat {chat_id}: {str(e)}")
-            raise
+        with open(chat_path, 'w') as f:
+            json.dump(chat, f)
+        
+        return chat
     
     def delete_chat(self, username: str, chat_id: str) -> bool:
         """Delete a chat"""
@@ -305,20 +226,12 @@ class JSONDatabase:
         if not os.path.exists(chat_path):
             return False
         
-        try:
-            os.remove(chat_path)
-            return True
-        except Exception as e:
-            logger.error(f"Error deleting chat {chat_id}: {str(e)}")
-            return False
+        os.remove(chat_path)
+        return True
     
     def get_chat_count(self, username: str) -> int:
         """Get the number of chats for a user"""
-        try:
-            return len(self.get_chats_for_user(username))
-        except Exception as e:
-            logger.error(f"Error getting chat count for {username}: {str(e)}")
-            return 0
+        return len(self.get_chats_for_user(username))
     
     def _read_users(self) -> List[Dict[str, Any]]:
         """Read users from file"""
@@ -330,12 +243,8 @@ class JSONDatabase:
     
     def _write_users(self, users: List[Dict[str, Any]]) -> None:
         """Write users to file"""
-        try:
-            with open(self.users_file, 'w') as f:
-                json.dump(users, f, indent=2)
-        except Exception as e:
-            logger.error(f"Error writing users file: {str(e)}")
-            raise
+        with open(self.users_file, 'w') as f:
+            json.dump(users, f, indent=2)
 
 
 # Initialize database

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Heading, Text, Flex, Button, Tag, Badge,
-    useToast, Input, InputGroup, InputRightElement, Icon,
+    useToast, Input, HStack, Icon,
     Grid, GridItem, useColorMode
 } from '@chakra-ui/react';
 import { FiArrowLeft, FiMessageSquare, FiTrash2, FiPlus } from 'react-icons/fi';
@@ -167,7 +167,6 @@ function DocumentView() {
                 leftIcon={<Icon as={FiArrowLeft} />}
                 onClick={handleBackToDocs}
                 mb={6}
-                size="md"
                 variant="outline"
                 borderRadius="md"
                 bg={colorMode === 'dark' ? 'gray.800' : 'gray.100'}
@@ -288,7 +287,9 @@ function DocumentView() {
                         >
                             Tags
                         </Text>
-                        <InputGroup mb={4}>
+
+                        {/* Tag input with properly aligned button */}
+                        <Flex mb={4}>
                             <Input
                                 placeholder="Add a tag"
                                 value={newTag}
@@ -297,21 +298,19 @@ function DocumentView() {
                                 bg={colorMode === 'dark' ? 'gray.700' : 'white'}
                                 color={colorMode === 'dark' ? 'white' : 'black'}
                                 borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
-                                pr="4.5rem"
+                                flex="1"
+                                borderRightRadius={0}
                             />
-                            <InputRightElement width="4.5rem">
-                                <Button
-                                    h="1.75rem"
-                                    size="sm"
-                                    colorScheme="blue"
-                                    onClick={handleAddTag}
-                                    isLoading={updateMutation.isLoading}
-                                    leftIcon={<Icon as={FiPlus} />}
-                                >
-                                    Add
-                                </Button>
-                            </InputRightElement>
-                        </InputGroup>
+                            <Button
+                                colorScheme="blue"
+                                onClick={handleAddTag}
+                                isLoading={updateMutation.isLoading}
+                                leftIcon={<Icon as={FiPlus} />}
+                                borderLeftRadius={0}
+                            >
+                                Add
+                            </Button>
+                        </Flex>
 
                         <Box>
                             {document.tags && document.tags.length > 0 ? (

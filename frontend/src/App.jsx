@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { mode } from '@chakra-ui/theme-tools'
-import { Box, Heading, Text } from '@chakra-ui/react';
 
 // Pages
 import Dashboard from './pages/Dashboard';

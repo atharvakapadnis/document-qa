@@ -1,24 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Flex, VStack, Input, Button, Text, Heading, Spinner,
     useToast, Tag, Avatar, IconButton, Badge, useColorMode,
-    Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
-    DrawerBody, DrawerCloseButton, useDisclosure, Tooltip, AlertDialog,
-    AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent,
-    AlertDialogOverlay, InputGroup, InputRightElement, Icon, HStack
+    AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader,
+    AlertDialogContent, AlertDialogOverlay, InputGroup, InputRightElement,
+    Icon, HStack
 } from '@chakra-ui/react';
-import { FiSend, FiFile, FiMessageSquare, FiMenu, FiSave, FiPlus, FiEdit, FiChevronRight } from 'react-icons/fi';
+import {
+    FiSend, FiFile, FiMessageSquare, FiPlus, FiSave,
+    FiEdit, FiChevronRight, FiArrowLeft
+} from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
 import { sendQuery } from '../api/queries';
 import {
-    fetchChats, fetchChat, createChat, updateChat,
+    fetchChat, createChat, updateChat,
     deleteChat, addMessage, getChatCount
 } from '../api/chats';
 import QueryVisualizer from '../components/QueryVisualizer';
-import ChatHistory from '../components/ChatHistory';
 
 // CSS for the markdown content to properly style bullets and lists
 const markdownStyles = {
@@ -100,6 +101,8 @@ const markdownStyles = {
 
 function ChatInterface() {
     const [searchParams] = useSearchParams();
+    const { chatId } = useParams();
+    const location = useLocation();
     const toast = useToast();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
@@ -108,21 +111,15 @@ function ChatInterface() {
     const [messages, setMessages] = useState([]);
     const [isQuerying, setIsQuerying] = useState(false);
     const [selectedDocs, setSelectedDocs] = useState([]);
-    const [activeChat, setActiveChat] = useState(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [chatTitle, setChatTitle] = useState('New Chat');
     const [unsavedChanges, setUnsavedChanges] = useState(false);
     const { colorMode } = useColorMode();
     const {
-        isOpen: isHistoryOpen,
-        onOpen: onHistoryOpen,
-        onClose: onHistoryClose
-    } = useDisclosure();
-    const {
         isOpen: isNewChatAlertOpen,
         onOpen: onNewChatAlertOpen,
         onClose: onNewChatAlertClose
-    } = useDisclosure();
+    } = useState(false);
     const cancelRef = React.useRef();
 
     // Fetch documents from URL params or dashboard selection
@@ -146,12 +143,11 @@ function ChatInterface() {
             setSelectedDocs(prev => [...prev, docId]);
         }
 
-        // Check if a chat ID is specified in the URL
-        const chatId = searchParams.get('chat');
-        if (chatId) {
-            setActiveChat(chatId);
+        // Check if document IDs were passed via location state
+        if (location.state && location.state.documentIds) {
+            setSelectedDocs(location.state.documentIds);
         }
-    }, [searchParams]);
+    }, [searchParams, location]);
 
     // Fetch user's documents
     const { data: documents, isLoading: isLoadingDocs } = useQuery(
@@ -171,10 +167,10 @@ function ChatInterface() {
         isLoading: isLoadingChat,
         refetch: refetchChat
     } = useQuery(
-        ['chat', activeChat],
-        () => fetchChat(activeChat),
+        ['chat', chatId],
+        () => fetchChat(chatId),
         {
-            enabled: !!activeChat,
+            enabled: !!chatId,
             onSuccess: (data) => {
                 // Update messages state with fetched messages
                 if (data.messages && Array.isArray(data.messages)) {
@@ -208,7 +204,7 @@ function ChatInterface() {
     const createChatMutation = useMutation(createChat, {
         onSuccess: (data) => {
             // Set the active chat to the newly created chat
-            setActiveChat(data.chat_id);
+            navigate(`/chat/${data.chat_id}`);
 
             // Update the chat title
             setChatTitle(data.title || 'Unnamed Chat');
@@ -241,10 +237,10 @@ function ChatInterface() {
 
     // Update chat mutation
     const updateChatMutation = useMutation(
-        (data) => updateChat(activeChat, data),
+        (data) => updateChat(chatId, data),
         {
             onSuccess: () => {
-                queryClient.invalidateQueries(['chat', activeChat]);
+                queryClient.invalidateQueries(['chat', chatId]);
                 queryClient.invalidateQueries('chats');
                 setUnsavedChanges(false);
                 toast({
@@ -272,7 +268,7 @@ function ChatInterface() {
         ({ chatId, message }) => addMessage(chatId, message),
         {
             onSuccess: () => {
-                queryClient.invalidateQueries(['chat', activeChat]);
+                queryClient.invalidateQueries(['chat', chatId]);
             },
             onError: (error) => {
                 console.error("Error adding message:", error);
@@ -294,10 +290,10 @@ function ChatInterface() {
 
     // Mark changes as unsaved when messages are updated
     useEffect(() => {
-        if (activeChat && messages.length > 0) {
+        if (chatId && messages.length > 0) {
             setUnsavedChanges(true);
         }
-    }, [messages, activeChat]);
+    }, [messages, chatId]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -332,7 +328,7 @@ function ChatInterface() {
 
         try {
             // If we don't have an active chat, create one
-            if (!activeChat) {
+            if (!chatId) {
                 // Use the first few words of the query as the chat title
                 const defaultTitle = query.split(' ').slice(0, 4).join(' ') + '...';
 
@@ -374,7 +370,7 @@ function ChatInterface() {
             } else {
                 // We have an active chat, add the user message to it
                 await addMessageMutation.mutateAsync({
-                    chatId: activeChat,
+                    chatId,
                     message: userMessage
                 });
 
@@ -397,7 +393,7 @@ function ChatInterface() {
 
                 // Add system message to the active chat
                 await addMessageMutation.mutateAsync({
-                    chatId: activeChat,
+                    chatId,
                     message: systemMessage
                 });
 
@@ -419,9 +415,9 @@ function ChatInterface() {
 
             setMessages([...newMessages, errorMessage]);
 
-            if (activeChat) {
+            if (chatId) {
                 addMessageMutation.mutate({
-                    chatId: activeChat,
+                    chatId,
                     message: errorMessage
                 });
             }
@@ -480,7 +476,7 @@ function ChatInterface() {
 
     // Save current chat
     const handleSaveChat = async () => {
-        if (!activeChat) {
+        if (!chatId) {
             // Create new chat if none exists
             handleCreateChat();
             return;
@@ -502,19 +498,6 @@ function ChatInterface() {
         }
     };
 
-    // Select a chat from history
-    const handleSelectChat = (chatId) => {
-        // Check for unsaved changes
-        if (unsavedChanges && messages.length > 0) {
-            if (window.confirm('You have unsaved changes. Do you want to save them before switching chats?')) {
-                handleSaveChat();
-            }
-        }
-
-        setActiveChat(chatId);
-        onHistoryClose();
-    };
-
     // Start a new chat
     const handleNewChat = () => {
         // Check for unsaved changes
@@ -524,11 +507,10 @@ function ChatInterface() {
             }
         }
 
-        setActiveChat(null);
+        navigate('/chat');
         setMessages([]);
         setChatTitle('New Chat');
         setUnsavedChanges(false);
-        onHistoryClose();
     };
 
     // Handle title editing
@@ -571,10 +553,10 @@ function ChatInterface() {
             >
                 <Flex align="center">
                     <IconButton
-                        icon={<Icon as={FiMenu} />}
-                        aria-label="Chat History"
+                        icon={<Icon as={FiArrowLeft} />}
+                        aria-label="Back to Dashboard"
                         mr={3}
-                        onClick={onHistoryOpen}
+                        onClick={handleBackToDashboard}
                         variant="ghost"
                     />
 
@@ -607,8 +589,8 @@ function ChatInterface() {
                             display="flex"
                             alignItems="center"
                         >
-                            {activeChat ? chatTitle : 'New Chat'}
-                            {activeChat && (
+                            {chatId ? chatTitle : 'New Chat'}
+                            {chatId && (
                                 <IconButton
                                     icon={<Icon as={FiEdit} />}
                                     size="sm"
@@ -627,34 +609,28 @@ function ChatInterface() {
                 </Flex>
 
                 <Flex>
-                    <Tooltip label="Back to Dashboard">
-                        <Button
-                            variant="ghost"
-                            mr={2}
-                            onClick={handleBackToDashboard}
-                        >
-                            Dashboard
-                        </Button>
-                    </Tooltip>
-                    <Tooltip label="New Chat">
-                        <IconButton
-                            icon={<Icon as={FiPlus} />}
-                            aria-label="New Chat"
-                            mr={2}
-                            onClick={handleNewChat}
-                            variant="ghost"
-                        />
-                    </Tooltip>
-                    <Tooltip label="Save Chat">
-                        <IconButton
-                            icon={<Icon as={FiSave} />}
-                            aria-label="Save Chat"
-                            mr={2}
-                            onClick={handleSaveChat}
-                            variant="ghost"
-                            isDisabled={!unsavedChanges && activeChat}
-                        />
-                    </Tooltip>
+                    <Button
+                        variant="ghost"
+                        mr={2}
+                        onClick={handleBackToDashboard}
+                    >
+                        Dashboard
+                    </Button>
+                    <IconButton
+                        icon={<Icon as={FiPlus} />}
+                        aria-label="New Chat"
+                        mr={2}
+                        onClick={handleNewChat}
+                        variant="ghost"
+                    />
+                    <IconButton
+                        icon={<Icon as={FiSave} />}
+                        aria-label="Save Chat"
+                        mr={2}
+                        onClick={handleSaveChat}
+                        variant="ghost"
+                        isDisabled={!unsavedChanges && chatId}
+                    />
                 </Flex>
             </Flex>
 
@@ -704,24 +680,6 @@ function ChatInterface() {
                     )}
                 </Flex>
             </Box>
-
-            {/* Chat history drawer */}
-            <Drawer
-                isOpen={isHistoryOpen}
-                placement="left"
-                onClose={onHistoryClose}
-            >
-                <DrawerOverlay />
-                <DrawerContent bg={colorMode === 'dark' ? 'gray.800' : 'white'}>
-                    <DrawerCloseButton />
-                    <DrawerHeader borderBottomWidth="1px">
-                        Chat History
-                    </DrawerHeader>
-                    <DrawerBody p={4}>
-                        <ChatHistory onSelectChat={handleSelectChat} />
-                    </DrawerBody>
-                </DrawerContent>
-            </Drawer>
 
             {/* Chat messages */}
             <VStack

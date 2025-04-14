@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
     Box, Heading, SimpleGrid, Text, Button, Input, Tag, HStack,
     VStack, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader,
     ModalCloseButton, ModalBody, ModalFooter, useToast, Spinner, Flex,
-    useColorMode, Icon
+    useColorMode, Icon, Divider, Grid, GridItem, Badge
 } from '@chakra-ui/react';
 import { FiUpload, FiFile, FiMessageSquare, FiChevronRight, FiSearch, FiX } from 'react-icons/fi';
 
 import { fetchDocuments, uploadDocument, deleteDocument } from '../api/documents';
+import { fetchChats, createChat, deleteChat } from '../api/chats';
 import DocumentCard from '../components/DocumentCard';
 import FileDropzone from '../components/FileDropzone';
+import ChatCard from '../components/ChatCard';
 
 function Dashboard() {
     const toast = useToast();
@@ -25,9 +27,15 @@ function Dashboard() {
     const { colorMode } = useColorMode();
 
     // Fetch documents
-    const { data: documents, isLoading, isError } = useQuery(
+    const { data: documents, isLoading: isLoadingDocs, isError: isDocsError } = useQuery(
         'documents',
         fetchDocuments
+    );
+
+    // Fetch chats
+    const { data: chats, isLoading: isLoadingChats, isError: isChatsError } = useQuery(
+        'chats',
+        fetchChats
     );
 
     // Load selected documents from localStorage on mount
@@ -79,6 +87,27 @@ function Dashboard() {
                 duration: 3000,
                 isClosable: true,
             });
+        }
+    });
+
+    // Delete chat mutation
+    const deleteChatMutation = useMutation(deleteChat, {
+        onSuccess: () => {
+            queryClient.invalidateQueries('chats');
+            toast({
+                title: 'Chat deleted',
+                status: 'success',
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+    });
+
+    // Create chat mutation
+    const createChatMutation = useMutation(createChat, {
+        onSuccess: (data) => {
+            queryClient.invalidateQueries('chats');
+            navigate(`/chat/${data.chat_id}`);
         }
     });
 
@@ -138,7 +167,33 @@ function Dashboard() {
 
     // Navigate to chat with selected documents
     const handleGoToChat = () => {
-        navigate('/chat');
+        // If no documents are selected, show all documents
+        // You might want to change this behavior
+        if (selectedDocuments.length === 0) {
+            navigate('/chat');
+        } else {
+            navigate('/chat', { state: { documentIds: selectedDocuments } });
+        }
+    };
+
+    // Create a new chat
+    const handleCreateChat = () => {
+        createChatMutation.mutate({
+            title: "New Chat",
+            document_ids: selectedDocuments
+        });
+    };
+
+    // Navigate to an existing chat
+    const handleOpenChat = (chatId) => {
+        navigate(`/chat/${chatId}`);
+    };
+
+    // Handle chat deletion
+    const handleDeleteChat = (chatId) => {
+        if (window.confirm('Are you sure you want to delete this chat?')) {
+            deleteChatMutation.mutate(chatId);
+        }
     };
 
     // Clear all selected documents
@@ -196,15 +251,7 @@ function Dashboard() {
                     >
                         Upload Document
                     </Button>
-                    {selectedDocuments.length > 0 && (
-                        <Button
-                            colorScheme="green"
-                            leftIcon={<Icon as={FiMessageSquare} />}
-                            onClick={handleGoToChat}
-                        >
-                            Chat with Selected
-                        </Button>
-                    )}
+                    {/* Removed "Chat with Selected" button from here as requested */}
                 </Flex>
             </Flex>
 
@@ -281,11 +328,11 @@ function Dashboard() {
                 </Flex>
             )}
 
-            {isLoading ? (
+            {isLoadingDocs ? (
                 <Flex justify="center" mt={10}>
                     <Spinner size="xl" color={colorMode === 'dark' ? 'blue.300' : 'blue.500'} />
                 </Flex>
-            ) : isError ? (
+            ) : isDocsError ? (
                 <Box textAlign="center" mt={10}>
                     <Text color={colorMode === 'dark' ? 'red.300' : 'red.500'}>
                         Error loading documents. Please try again later.
@@ -324,6 +371,68 @@ function Dashboard() {
                 </SimpleGrid>
             )}
 
+            {/* Chat History Section */}
+            <Divider my={8} borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'} />
+
+            <Heading size="lg" mb={6} color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                Chat History
+            </Heading>
+
+            {chats && (
+                <Text mb={4} color={colorMode === 'dark' ? 'gray.400' : 'gray.600'}>
+                    {chats.length} of 5 chats used
+                </Text>
+            )}
+
+            {isLoadingChats ? (
+                <Flex justify="center" mt={10}>
+                    <Spinner size="xl" color={colorMode === 'dark' ? 'blue.300' : 'blue.500'} />
+                </Flex>
+            ) : isChatsError ? (
+                <Box textAlign="center" mt={10}>
+                    <Text color={colorMode === 'dark' ? 'red.300' : 'red.500'}>
+                        Error loading chat history. Please try again later.
+                    </Text>
+                </Box>
+            ) : chats && chats.length > 0 ? (
+                <Grid
+                    templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }}
+                    gap={6}
+                >
+                    {chats.map((chat) => (
+                        <GridItem key={chat.chat_id}>
+                            <ChatCard
+                                chat={chat}
+                                onClick={() => handleOpenChat(chat.chat_id)}
+                                onDelete={() => handleDeleteChat(chat.chat_id)}
+                            />
+                        </GridItem>
+                    ))}
+                </Grid>
+            ) : (
+                <Box
+                    textAlign="center"
+                    p={6}
+                    borderWidth={1}
+                    borderRadius="lg"
+                    borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
+                    bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+                >
+                    <Icon as={FiMessageSquare} boxSize={10} mb={4} color="blue.500" />
+                    <Heading size="md" mb={2} color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                        No chat history yet
+                    </Heading>
+                    <Text mb={4} color={colorMode === 'dark' ? 'gray.400' : 'gray.600'}>
+                        Select documents and start a new conversation
+                    </Text>
+                    {selectedDocuments.length > 0 && (
+                        <Button colorScheme="green" onClick={handleGoToChat}>
+                            Chat with Selected Documents
+                        </Button>
+                    )}
+                </Box>
+            )}
+
             {/* Upload Document Modal */}
             <Modal isOpen={isOpen} onClose={onClose} size="lg">
                 <ModalOverlay />
@@ -359,15 +468,6 @@ function Dashboard() {
                                     bg={colorMode === 'dark' ? 'gray.700' : 'white'}
                                     color={colorMode === 'dark' ? 'white' : 'gray.800'}
                                     borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
-                                    _hover={{
-                                        borderColor: colorMode === 'dark' ? 'blue.300' : 'blue.500',
-                                    }}
-                                    _focus={{
-                                        borderColor: 'blue.500',
-                                        boxShadow: colorMode === 'dark'
-                                            ? '0 0 0 1px var(--chakra-colors-blue-500)'
-                                            : '0 0 0 1px var(--chakra-colors-blue-500)'
-                                    }}
                                 />
                                 <Button onClick={handleAddTag}>Add</Button>
                             </HStack>

@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from datetime import datetime
 
 from app.db.database import db
 from app.models.user import User
@@ -8,7 +9,6 @@ from app.models.chat import Chat, ChatCreate, ChatUpdate, Message
 from app.api.auth import get_current_user
 from app.core.config import settings
 import uuid
-from datetime import datetime
 
 router = APIRouter()
 
@@ -97,7 +97,14 @@ async def add_message(chat_id: str, message: Message, current_user: User = Depen
     if "messages" not in existing_chat:
         existing_chat["messages"] = []
     
-    existing_chat["messages"].append(message.dict())
+    # Convert the message to a dict and ensure datetime objects are converted to strings
+    message_dict = message.dict()
+    
+    # Ensure timestamp is a string
+    if isinstance(message_dict.get("timestamp"), datetime):
+        message_dict["timestamp"] = message_dict["timestamp"].isoformat()
+    
+    existing_chat["messages"].append(message_dict)
     
     # Update the chat
     updated_chat = db.update_chat(current_user.username, chat_id, existing_chat)

@@ -11,6 +11,13 @@ from app.core.config import settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Custom JSON encoder to handle datetime objects
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
 class JSONDatabase:
     """Simple JSON-based database for users and metadata"""
     
@@ -119,7 +126,7 @@ class JSONDatabase:
         
         try:
             with open(doc_path, 'w') as f:
-                json.dump(doc_data, f)
+                json.dump(doc_data, f, cls=DateTimeEncoder)
             
             return doc_data
         except Exception as e:
@@ -209,7 +216,7 @@ class JSONDatabase:
         
         # Write the repaired file
         with open(chat_path, 'w') as f:
-            json.dump(minimal_chat, f)
+            json.dump(minimal_chat, f, cls=DateTimeEncoder)
         
         logger.info(f"Repaired corrupted chat file: {chat_path}")
     
@@ -265,7 +272,7 @@ class JSONDatabase:
         chat_path = f"{user_chats_dir}/{chat_data['chat_id']}.json"
         try:
             with open(chat_path, 'w') as f:
-                json.dump(chat_data, f)
+                json.dump(chat_data, f, cls=DateTimeEncoder)
             
             return chat_data
         except Exception as e:
@@ -291,7 +298,7 @@ class JSONDatabase:
         chat_path = f"{user_chats_dir}/{chat_id}.json"
         try:
             with open(chat_path, 'w') as f:
-                json.dump(chat, f)
+                json.dump(chat, f, cls=DateTimeEncoder)
             
             return chat
         except Exception as e:
@@ -332,7 +339,7 @@ class JSONDatabase:
         """Write users to file"""
         try:
             with open(self.users_file, 'w') as f:
-                json.dump(users, f, indent=2)
+                json.dump(users, f, indent=2, cls=DateTimeEncoder)
         except Exception as e:
             logger.error(f"Error writing users file: {str(e)}")
             raise

@@ -13,6 +13,11 @@ class Message(BaseModel):
     confidence: Optional[float] = None
     query_time_seconds: Optional[float] = None
     error: Optional[bool] = None
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 
 class ChatBase(BaseModel):
@@ -36,6 +41,9 @@ class Chat(ChatBase):
 
     class Config:
         orm_mode = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 
 class ChatUpdate(BaseModel):
@@ -43,3 +51,8 @@ class ChatUpdate(BaseModel):
     title: Optional[str] = None
     messages: Optional[List[Message]] = None
     document_ids: Optional[List[str]] = None
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }

@@ -10,7 +10,7 @@ import {
 } from '@chakra-ui/react';
 import {
     FiSend, FiFile, FiMessageSquare, FiPlus, FiSave,
-    FiEdit, FiChevronRight, FiArrowLeft
+    FiEdit, FiChevronRight, FiArrowLeft, FiDownload
 } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import { fetchDocuments } from '../api/documents';
@@ -20,6 +20,7 @@ import {
     deleteChat, addMessage, getChatCount
 } from '../api/chats';
 import QueryVisualizer from '../components/QueryVisualizer';
+import ExportButton from '../components/ExportButton';
 
 // CSS for the markdown content to properly style bullets and lists
 const markdownStyles = {
@@ -115,11 +116,7 @@ function ChatInterface() {
     const [chatTitle, setChatTitle] = useState('New Chat');
     const [unsavedChanges, setUnsavedChanges] = useState(false);
     const { colorMode } = useColorMode();
-    const {
-        isOpen: isNewChatAlertOpen,
-        onOpen: onNewChatAlertOpen,
-        onClose: onNewChatAlertClose
-    } = useState(false);
+    const [isNewChatAlertOpen, setIsNewChatAlertOpen] = useState(false);
     const cancelRef = React.useRef();
 
     // Fetch documents from URL params or dashboard selection
@@ -439,7 +436,7 @@ function ChatInterface() {
         const willExceedLimit = (chatCountData?.total || 0) >= 5;
 
         if (willExceedLimit) {
-            onNewChatAlertOpen();
+            setIsNewChatAlertOpen(true);
             return;
         }
 
@@ -470,7 +467,7 @@ function ChatInterface() {
 
     // Handle new chat after limit warning
     const handleProceedWithNewChat = () => {
-        onNewChatAlertClose();
+        setIsNewChatAlertOpen(false);
         createNewChat();
     };
 
@@ -538,6 +535,10 @@ function ChatInterface() {
     // Return to dashboard
     const handleBackToDashboard = () => {
         navigate('/');
+    };
+
+    const onNewChatAlertClose = () => {
+        setIsNewChatAlertOpen(false);
     };
 
     return (
@@ -630,6 +631,12 @@ function ChatInterface() {
                         onClick={handleSaveChat}
                         variant="ghost"
                         isDisabled={!unsavedChanges && chatId}
+                    />
+                    <ExportButton 
+                        chatId={chatId} 
+                        chatTitle={chatTitle}
+                        messagesCount={messages.length}
+                        isDisabled={isQuerying || !chatId}
                     />
                 </Flex>
             </Flex>

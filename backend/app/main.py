@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.api import auth, documents, queries, chats
+from app.api import auth, documents, queries, chats, exports
 
 # Create required directories
 os.makedirs(settings.DOCUMENT_STORAGE_PATH, exist_ok=True)
@@ -32,6 +32,7 @@ app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["aut
 app.include_router(documents.router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"])
 app.include_router(queries.router, prefix=f"{settings.API_V1_STR}/queries", tags=["queries"])
 app.include_router(chats.router, prefix=f"{settings.API_V1_STR}/chats", tags=["chats"])
+app.include_router(exports.router, prefix=f"{settings.API_V1_STR}/exports", tags=["exports"])
 
 @app.get("/")
 async def root():

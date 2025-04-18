@@ -302,7 +302,7 @@ function ChatInterface() {
         return doc ? doc.filename : docId;
     };
 
-    // Send a query to the backend - THIS IS THE CRITICAL FUNCTION THAT NEEDS FIXING
+    // Send a query to the backend 
     const handleSendQuery = async (e) => {
         e.preventDefault();
 

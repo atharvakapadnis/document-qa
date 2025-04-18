@@ -632,8 +632,8 @@ function ChatInterface() {
                         variant="ghost"
                         isDisabled={!unsavedChanges && chatId}
                     />
-                    <ExportButton 
-                        chatId={chatId} 
+                    <ExportButton
+                        chatId={chatId}
                         chatTitle={chatTitle}
                         messagesCount={messages.length}
                         isDisabled={isQuerying || !chatId}

@@ -302,13 +302,13 @@ function ChatInterface() {
         return doc ? doc.filename : docId;
     };
 
-    // Send a query to the backend
+    // Send a query to the backend - THIS IS THE CRITICAL FUNCTION THAT NEEDS FIXING
     const handleSendQuery = async (e) => {
         e.preventDefault();
 
         if (!query.trim()) return;
 
-        // Add user message
+        // Create the user message object with a unique ID
         const userMessage = {
             id: Date.now().toString(),
             sender: 'user',
@@ -316,35 +316,46 @@ function ChatInterface() {
             timestamp: new Date().toISOString(),
         };
 
-        const newMessages = [...messages, userMessage];
-        setMessages(newMessages);
+        // Save a copy of the query text before clearing the input
+        const currentQueryText = query;
 
-        // Clear input
+        // Clear input field and set loading state
         setQuery('');
         setIsQuerying(true);
 
         try {
-            // If we don't have an active chat, create one
             if (!chatId) {
-                // Use the first few words of the query as the chat title
-                const defaultTitle = query.split(' ').slice(0, 4).join(' ') + '...';
+                // CASE 1: No active chat - create a new one first
 
+                // Use the first few words of the query as the chat title
+                const defaultTitle = currentQueryText.split(' ').slice(0, 4).join(' ') + '...';
+
+                // IMPORTANT: First create the chat WITHOUT any messages
                 const chatData = await createChatMutation.mutateAsync({
                     title: defaultTitle,
                     document_ids: selectedDocs,
-                    messages: [userMessage]  // Include the first message
+                    messages: [] // Create chat with empty messages array
                 });
 
-                // Chat is now created, update activeChat
+                // Now we have a new chatId
                 const newChatId = chatData.chat_id;
 
-                // System response will be added to this chat
+                // IMPORTANT: Explicitly add the user message to the chat
+                await addMessageMutation.mutateAsync({
+                    chatId: newChatId,
+                    message: userMessage
+                });
+
+                // Update local messages state to show the user message
+                setMessages([userMessage]);
+
+                // Now get the AI response
                 const response = await sendQuery({
-                    query: userMessage.text,
+                    query: currentQueryText,
                     document_ids: selectedDocs.length > 0 ? selectedDocs : undefined
                 });
 
-                // Add system message with response
+                // Format the AI response message
                 const systemMessage = {
                     id: (Date.now() + 1).toString(),
                     sender: 'system',
@@ -355,29 +366,34 @@ function ChatInterface() {
                     timestamp: new Date().toISOString(),
                 };
 
-                // Add system message to the new chat
+                // Add the AI response to the chat
                 await addMessageMutation.mutateAsync({
                     chatId: newChatId,
                     message: systemMessage
                 });
 
-                // Update local messages state
-                setMessages([...newMessages, systemMessage]);
+                // Update local messages state to include both messages
+                setMessages([userMessage, systemMessage]);
 
             } else {
-                // We have an active chat, add the user message to it
+                // CASE 2: Existing chat - add user message first
+
+                // Update local state to show user message immediately
+                setMessages(prevMessages => [...prevMessages, userMessage]);
+
+                // Add the user's message to the database
                 await addMessageMutation.mutateAsync({
                     chatId,
                     message: userMessage
                 });
 
-                // Get system response
+                // Now get the AI response
                 const response = await sendQuery({
-                    query: userMessage.text,
+                    query: currentQueryText,
                     document_ids: selectedDocs.length > 0 ? selectedDocs : undefined
                 });
 
-                // Add system message with response
+                // Format the AI response message
                 const systemMessage = {
                     id: (Date.now() + 1).toString(),
                     sender: 'system',
@@ -388,16 +404,15 @@ function ChatInterface() {
                     timestamp: new Date().toISOString(),
                 };
 
-                // Add system message to the active chat
+                // Add the AI response to the chat
                 await addMessageMutation.mutateAsync({
                     chatId,
                     message: systemMessage
                 });
 
-                // Update local messages state
-                setMessages([...newMessages, systemMessage]);
+                // Update local messages state to include the new system message
+                setMessages(prevMessages => [...prevMessages, systemMessage]);
             }
-
         } catch (error) {
             console.error("Error sending query:", error);
 
@@ -410,8 +425,10 @@ function ChatInterface() {
                 timestamp: new Date().toISOString(),
             };
 
-            setMessages([...newMessages, errorMessage]);
+            // Update local messages to include the error message
+            setMessages(prevMessages => [...prevMessages, errorMessage]);
 
+            // Save the error message to the chat if we have an active chat
             if (chatId) {
                 addMessageMutation.mutate({
                     chatId,
@@ -540,6 +557,11 @@ function ChatInterface() {
     const onNewChatAlertClose = () => {
         setIsNewChatAlertOpen(false);
     };
+
+    // Debug function - uncomment to help troubleshoot
+    // useEffect(() => {
+    //     console.log("Current messages state:", messages);
+    // }, [messages]);
 
     return (
         <Box h="calc(100vh - 80px)" display="flex" flexDirection="column">
@@ -688,7 +710,7 @@ function ChatInterface() {
                 </Flex>
             </Box>
 
-            {/* Chat messages */}
+            {/* Chat messages - this is where we display both user and system messages */}
             <VStack
                 flex="1"
                 overflowY="auto"
@@ -696,6 +718,7 @@ function ChatInterface() {
                 p={4}
                 align="stretch"
                 bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+                data-testid="message-container" // Added for easier testing/debugging
             >
                 {isLoadingChat ? (
                     <Flex justify="center" align="center" h="100%">
@@ -721,10 +744,12 @@ function ChatInterface() {
                         </Text>
                     </Flex>
                 ) : (
+                    // Map through all messages and display them
                     messages.map((message) => (
                         <Flex
                             key={message.id}
                             justify={message.sender === 'user' ? 'flex-end' : 'flex-start'}
+                            data-sender={message.sender} // Added for easier debugging
                         >
                             <Box
                                 maxW="80%"
